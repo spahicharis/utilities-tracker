@@ -65,10 +65,11 @@ Providers:
 Bills:
 - `GET /api/bills?month=YYYY-MM&year=YYYY`
 - `POST /api/bills` with body:
-  `{ "provider": "Electricity", "amount": 120.55, "billDate": "2026-03-01", "billingMonth": "2026-03", "status": "Pending" }`
+  `{ "provider": "Electricity", "amount": 120.55, "currency": "KM", "billDate": "2026-03-01", "billingMonth": "2026-03", "status": "Pending" }`
 - `POST /api/bills/import` with body:
-  `{ "provider": "Electricity", "year": "2026", "status": "Pending", "csv": "100 KM\n24 KM\n35 KM" }`
+  `{ "provider": "Electricity", "year": "2026", "currency": "KM", "status": "Pending", "csv": "100 KM\n24 KM\n35 KM" }`
   (newline-delimited values are mapped to January onward in the selected year; max 12 values)
+  (`currency` defaults to `"KM"` when omitted)
 - `PATCH /api/bills/:id/status` with body `{ "status": "Paid" }`
 - `DELETE /api/bills/:id`
 

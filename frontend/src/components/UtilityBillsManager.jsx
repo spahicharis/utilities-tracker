@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 
 const STATUS_OPTIONS = ["Pending", "Paid", "Overdue"];
+const CURRENCY_OPTIONS = ["KM", "EUR", "USD"];
 
 function UtilityBillsManager({ providers = [] }) {
   const [bills, setBills] = useState([]);
@@ -17,6 +18,7 @@ function UtilityBillsManager({ providers = [] }) {
   const [form, setForm] = useState(() => ({
     provider: "",
     amount: "",
+    currency: "KM",
     billDate: "",
     billingMonth: new Date().toISOString().slice(0, 7),
     status: "Pending"
@@ -24,6 +26,7 @@ function UtilityBillsManager({ providers = [] }) {
   const [importForm, setImportForm] = useState(() => ({
     provider: "",
     year: String(new Date().getFullYear()),
+    currency: "KM",
     status: "Pending",
     csv: ""
   }));
@@ -103,6 +106,10 @@ function UtilityBillsManager({ providers = [] }) {
     () => filteredBills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0),
     [filteredBills]
   );
+  const totalCurrencyLabel = useMemo(() => {
+    const currencies = Array.from(new Set(filteredBills.map((bill) => bill.currency || "KM")));
+    return currencies.length === 1 ? currencies[0] : "mixed";
+  }, [filteredBills]);
 
   const paidCount = filteredBills.filter((bill) => bill.status === "Paid").length;
   const pendingCount = filteredBills.filter((bill) => bill.status === "Pending").length;
@@ -127,6 +134,7 @@ function UtilityBillsManager({ providers = [] }) {
       const data = await api.addBill({
         provider: form.provider.trim(),
         amount,
+        currency: form.currency,
         billDate: form.billDate,
         billingMonth: form.billingMonth,
         status: form.status
@@ -136,7 +144,14 @@ function UtilityBillsManager({ providers = [] }) {
       } else if (data?.bill) {
         setBills((current) => [data.bill, ...current]);
       }
-      setForm((current) => ({ ...current, provider: "", amount: "", billDate: "", status: "Pending" }));
+      setForm((current) => ({
+        ...current,
+        provider: "",
+        amount: "",
+        currency: current.currency || "KM",
+        billDate: "",
+        status: "Pending"
+      }));
       setIsDialogOpen(false);
     } catch (_error) {
       setError("Failed to add bill.");
@@ -188,6 +203,7 @@ function UtilityBillsManager({ providers = [] }) {
       const data = await api.importBillsCsv({
         provider,
         year,
+        currency: importForm.currency,
         status: importForm.status,
         csv
       });
@@ -291,7 +307,7 @@ function UtilityBillsManager({ providers = [] }) {
         <Stat label="Overdue" value={String(overdueCount)} />
       </div>
       <p className="mt-3 text-sm text-slate-700">
-        Total amount: <strong>${totalAmount.toFixed(2)}</strong>
+        Total amount: <strong>{totalAmount.toFixed(2)} {totalCurrencyLabel}</strong>
       </p>
       {loading ? <p className="mt-2 text-sm text-slate-500">Loading bills...</p> : null}
       {error ? <p className="mt-2 text-sm text-rose-700">{error}</p> : null}
@@ -320,7 +336,9 @@ function UtilityBillsManager({ providers = [] }) {
               filteredBills.map((bill) => (
                 <tr key={bill.id} className="border-t border-slate-200">
                   <td className="px-3 py-2">{bill.provider}</td>
-                  <td className="px-3 py-2">${Number(bill.amount).toFixed(2)}</td>
+                  <td className="px-3 py-2">
+                    {Number(bill.amount).toFixed(2)} {bill.currency || "KM"}
+                  </td>
                   <td className="px-3 py-2">{bill.billDate}</td>
                   <td className="px-3 py-2">{bill.billingMonth}</td>
                   <td className="px-3 py-2">
@@ -368,7 +386,7 @@ function UtilityBillsManager({ providers = [] }) {
               </button>
             </div>
 
-            <form className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5" onSubmit={addBill}>
+            <form className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6" onSubmit={addBill}>
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Provider</span>
                 <input
@@ -396,6 +414,20 @@ function UtilityBillsManager({ providers = [] }) {
                   placeholder="0.00"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
                 />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Currency</span>
+                <select
+                  value={form.currency}
+                  onChange={(event) => onChange("currency", event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                >
+                  {CURRENCY_OPTIONS.map((currency) => (
+                    <option key={currency} value={currency}>
+                      {currency}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="block">
@@ -435,7 +467,7 @@ function UtilityBillsManager({ providers = [] }) {
 
               <button
                 type="submit"
-                className="md:col-span-2 xl:col-span-5 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="md:col-span-2 xl:col-span-6 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
                 Save Bill
               </button>
@@ -493,6 +525,21 @@ function UtilityBillsManager({ providers = [] }) {
                   onChange={(event) => onImportChange("year", event.target.value)}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
                 />
+              </label>
+
+              <label className="block md:col-span-2">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Currency</span>
+                <select
+                  value={importForm.currency}
+                  onChange={(event) => onImportChange("currency", event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                >
+                  {CURRENCY_OPTIONS.map((currency) => (
+                    <option key={currency} value={currency}>
+                      {currency}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="block md:col-span-2">

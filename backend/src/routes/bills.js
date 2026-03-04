@@ -15,6 +15,11 @@ function parseCurrencyAmountToken(raw) {
   return parseAmount(normalized);
 }
 
+function normalizeCurrency(input) {
+  const value = String(input || "KM").trim().toUpperCase();
+  return value || "KM";
+}
+
 router.get("/", async (req, res) => {
   const month = typeof req.query.month === "string" ? req.query.month : "";
   const year = typeof req.query.year === "string" ? req.query.year : "";
@@ -32,6 +37,7 @@ router.post("/", async (req, res) => {
   const billDate = String(req.body?.billDate || "").trim();
   const billingMonth = String(req.body?.billingMonth || "").trim();
   const status = String(req.body?.status || "Pending");
+  const currency = normalizeCurrency(req.body?.currency);
   const amount = parseAmount(req.body?.amount);
 
   if (!provider || !billDate || !billingMonth || amount === null) {
@@ -56,6 +62,7 @@ router.post("/", async (req, res) => {
       id: randomUUID(),
       provider,
       amount,
+      currency,
       billDate,
       billingMonth,
       status
@@ -71,6 +78,7 @@ router.post("/import", async (req, res) => {
   const provider = String(req.body?.provider || "").trim();
   const year = String(req.body?.year || "").trim();
   const status = String(req.body?.status || "Pending").trim();
+  const currency = normalizeCurrency(req.body?.currency);
   const csv = String(req.body?.csv || "").trim();
 
   if (!provider || !csv || !year) {
@@ -108,6 +116,7 @@ router.post("/import", async (req, res) => {
       id: randomUUID(),
       provider,
       amount,
+      currency,
       billDate: `${year}-${month}-01`,
       billingMonth: `${year}-${month}`,
       status

@@ -20,6 +20,7 @@ function mapBillRow(row) {
     id: row.id,
     provider: row.provider,
     amount: Number(row.amount),
+    currency: row.currency ?? "KM",
     billDate: row.bill_date,
     billingMonth: row.billing_month,
     status: row.status
@@ -55,11 +56,13 @@ export async function initializeDatabase() {
         id UUID PRIMARY KEY,
         provider TEXT NOT NULL,
         amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+        currency TEXT NOT NULL DEFAULT 'KM',
         bill_date DATE NOT NULL,
         billing_month TEXT NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('Pending', 'Paid', 'Overdue'))
       );
     `);
+    await client.query("ALTER TABLE bills ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'KM'");
 
     const existingProviders = await client.query("SELECT COUNT(*)::INT AS count FROM providers");
     if (existingProviders.rows[0].count === 0) {
@@ -170,7 +173,7 @@ export async function listBills(filters = {}) {
   const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
   const result = await getPool().query(
     `
-      SELECT id, provider, amount, bill_date, billing_month, status
+      SELECT id, provider, amount, currency, bill_date, billing_month, status
       FROM bills
       ${whereClause}
       ORDER BY bill_date DESC
@@ -184,11 +187,11 @@ export async function listBills(filters = {}) {
 export async function insertBill(bill) {
   const result = await getPool().query(
     `
-      INSERT INTO bills(id, provider, amount, bill_date, billing_month, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, provider, amount, bill_date, billing_month, status
+      INSERT INTO bills(id, provider, amount, currency, bill_date, billing_month, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id, provider, amount, currency, bill_date, billing_month, status
     `,
-    [bill.id, bill.provider, bill.amount, bill.billDate, bill.billingMonth, bill.status]
+    [bill.id, bill.provider, bill.amount, bill.currency, bill.billDate, bill.billingMonth, bill.status]
   );
   return mapBillRow(result.rows[0]);
 }
@@ -205,11 +208,11 @@ export async function insertBillsBulk(bills) {
     for (const bill of bills) {
       const result = await client.query(
         `
-          INSERT INTO bills(id, provider, amount, bill_date, billing_month, status)
-          VALUES ($1, $2, $3, $4, $5, $6)
-          RETURNING id, provider, amount, bill_date, billing_month, status
+          INSERT INTO bills(id, provider, amount, currency, bill_date, billing_month, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING id, provider, amount, currency, bill_date, billing_month, status
         `,
-        [bill.id, bill.provider, bill.amount, bill.billDate, bill.billingMonth, bill.status]
+        [bill.id, bill.provider, bill.amount, bill.currency, bill.billDate, bill.billingMonth, bill.status]
       );
       inserted.push(mapBillRow(result.rows[0]));
     }
@@ -229,7 +232,7 @@ export async function updateBillStatus(id, status) {
       UPDATE bills
       SET status = $2
       WHERE id = $1
-      RETURNING id, provider, amount, bill_date, billing_month, status
+      RETURNING id, provider, amount, currency, bill_date, billing_month, status
     `,
     [id, status]
   );
