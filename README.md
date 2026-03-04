@@ -1,14 +1,29 @@
 # Utilities Tracker
 
-Initial project scaffold with:
-- `backend`: Node.js + Express API
-- `frontend`: React app (Vite + Tailwind CSS)
+Utility bill tracking app with:
+- `backend`: Node.js + Express + Supabase Postgres
+- `frontend`: React (Vite + Tailwind CSS)
 
-## Quick Start
+## ✨ Highlights
+- 📌 Provider management with `name`, `address`, `phone`, `logo`
+- 🧾 Bills with `amount`, `currency` (default `KM`), status, dates
+- 📥 Bulk import bills via newline-delimited CSV text
+- 📊 Dashboard with line and pie charts
+- 🚨 Unpaid bills section (pending + overdue cards)
+
+## 🚀 Quick Start
 
 ### 1) Configure environment files
 
-Copy example env files:
+macOS/Linux:
+
+```bash
+cp .env.example .env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
@@ -16,9 +31,11 @@ Copy-Item backend/.env.example backend/.env
 Copy-Item frontend/.env.example frontend/.env
 ```
 
-Notes:
-- `BACKEND_PORT` and `FRONTEND_PORT` are used as shared defaults.
-- `VITE_API_BASE_URL` is optional. If empty, frontend calls `/api` and uses Vite proxy to backend.
+Important vars:
+- `POSTGRES_DB_URL`: Supabase Postgres connection string
+- `BACKEND_PORT`: backend port (default `5005`)
+- `FRONTEND_PORT`: frontend port (default `5173`)
+- `VITE_API_BASE_URL`: optional frontend override (empty = Vite proxy to `/api`)
 
 ### 2) Install dependencies
 
@@ -31,47 +48,59 @@ npm --prefix frontend install
 ### 3) Run apps
 
 Backend:
+
 ```bash
 npm run dev:backend
 ```
 
 Frontend:
+
 ```bash
 npm run dev:frontend
 ```
 
-Default ports:
-- Backend: `http://localhost:5000`
-- Frontend: `http://localhost:5173`
+Default local URLs:
+- 🔧 Backend: `http://localhost:5005`
+- 🖥️ Frontend: `http://localhost:5173`
 
-Health endpoint:
-- Backend: `GET /api/health`
+Health check:
+- ✅ `GET /api/health`
 
-Tailwind config files:
-- `frontend/tailwind.config.cjs`
-- `frontend/postcss.config.cjs`
+## 🗄️ Database
 
-## Backend API
+Backend uses Supabase Postgres via `POSTGRES_DB_URL`.
+On startup, the API auto-creates/updates required tables/columns (`providers`, `bills`).
 
-Data is persisted in Supabase Postgres using `POSTGRES_DB_URL`.
-On startup, the backend creates `providers` and `bills` tables automatically if they do not exist.
+## 🔌 Backend API
 
-Providers:
+### Providers
 - `GET /api/providers`
-- `POST /api/providers` with body `{ "name": "Water Supply", "address": "Main St 1", "phone": "+387 33 000 000", "logo": "https://..." }`
-- `PATCH /api/providers/:name` with body `{ "name": "Water Supply Updated", "address": "Main St 2", "phone": "+387 33 111 111", "logo": "https://..." }`
+- `POST /api/providers`
+  - body: `{ "name": "Water Supply", "address": "Main St 1", "phone": "+387 33 000 000", "logo": "https://..." }`
+- `PATCH /api/providers/:name`
+  - body: `{ "name": "Water Supply Updated", "address": "Main St 2", "phone": "+387 33 111 111", "logo": "https://..." }`
 - `DELETE /api/providers/:name`
 
-Bills:
+### Bills
 - `GET /api/bills?month=YYYY-MM&year=YYYY`
-- `POST /api/bills` with body:
-  `{ "provider": "Electricity", "amount": 120.55, "currency": "KM", "billDate": "2026-03-01", "billingMonth": "2026-03", "status": "Pending" }`
-- `POST /api/bills/import` with body:
-  `{ "provider": "Electricity", "year": "2026", "currency": "KM", "status": "Pending", "csv": "100 KM\n24 KM\n35 KM" }`
-  (newline-delimited values are mapped to January onward in the selected year; max 12 values)
-  (`currency` defaults to `"KM"` when omitted)
-- `PATCH /api/bills/:id/status` with body `{ "status": "Paid" }`
+- `POST /api/bills`
+  - body: `{ "provider": "Electricity", "amount": 120.55, "currency": "KM", "billDate": "2026-03-01", "billingMonth": "2026-03", "status": "Pending" }`
+- `POST /api/bills/import`
+  - body: `{ "provider": "Electricity", "year": "2026", "currency": "KM", "status": "Pending", "csv": "100 KM\n24 KM\n35 KM" }`
+  - notes:
+    - each line = one amount (newline-delimited)
+    - mapped from January onward in selected year
+    - max 12 lines per import
+    - `currency` defaults to `"KM"` when omitted
+- `PATCH /api/bills/:id/status`
+  - body: `{ "status": "Paid" }`
 - `DELETE /api/bills/:id`
 
-Dashboard:
+### Dashboard
 - `GET /api/dashboard?year=2026`
+- Includes:
+  - summary cards
+  - yearly spend line chart data
+  - status split data
+  - top providers data
+  - unpaid bills list
