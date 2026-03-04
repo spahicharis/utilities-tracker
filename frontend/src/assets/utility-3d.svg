@@ -1,0 +1,38 @@
+<svg width="420" height="320" viewBox="0 0 420 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="46" y1="58" x2="318" y2="263" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="222" y1="52" x2="372" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDE68A"/>
+      <stop offset="1" stop-color="#F97316"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="104" y1="182" x2="244" y2="302" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#0EA5E9"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="420" height="320" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <path d="M80 140L190 80L300 140L190 200L80 140Z" fill="url(#g1)"/>
+    <path d="M80 140V230L190 290V200L80 140Z" fill="#0F172A"/>
+    <path d="M190 200V290L300 230V140L190 200Z" fill="#1E293B"/>
+    <path d="M123 158L190 122L257 158L190 195L123 158Z" fill="#E2E8F0" fill-opacity="0.75"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <path d="M224 92L286 58L348 92L286 126L224 92Z" fill="url(#g2)"/>
+    <path d="M224 92V147L286 182V126L224 92Z" fill="#7C2D12"/>
+    <path d="M286 126V182L348 147V92L286 126Z" fill="#9A3412"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <path d="M78 210L138 177L198 210L138 244L78 210Z" fill="url(#g3)"/>
+    <path d="M78 210V263L138 297V244L78 210Z" fill="#134E4A"/>
+    <path d="M138 244V297L198 263V210L138 244Z" fill="#155E75"/>
+  </g>
+</svg>

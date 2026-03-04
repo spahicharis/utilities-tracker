@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { TRACKING_START_YEAR } from "../../lib/billingConfig";
 import { api } from "../../lib/api";
+import dashboard3dImage from "../../assets/dashboard-3d.svg";
 
 const STATUS_OPTIONS = [
   { key: "paid", label: "Paid", color: "bg-emerald-500" },
@@ -74,6 +75,9 @@ function DashboardPage() {
             <p className="mt-2 text-sm text-slate-600">
               Year-based view of your utility spending history from {data.trackingStartYear} to {currentYear}.
             </p>
+          </div>
+          <div className="float-soft-delayed hidden w-56 rounded-xl border border-slate-200 bg-slate-50 p-2 lg:block">
+            <img src={dashboard3dImage} alt="3D dashboard illustration" className="w-full rounded-lg" />
           </div>
           <label>
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</span>

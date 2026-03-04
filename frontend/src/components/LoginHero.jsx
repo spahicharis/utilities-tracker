@@ -1,3 +1,5 @@
+import utility3dImage from "../assets/utility-3d.svg";
+
 function LoginHero() {
   return (
     <article className="slide-up order-2 flex flex-col justify-between p-8 sm:p-10 lg:order-1 lg:w-1/2 lg:p-14">
@@ -9,6 +11,15 @@ function LoginHero() {
         <p className="mt-5 max-w-md text-sm text-slate-300 sm:text-base">
           Sign in to monitor your dashboards, alerts, and reports in one place.
         </p>
+      </div>
+
+      <div className="relative mt-8 rounded-2xl border border-white/20 bg-white/5 p-3">
+        <div className="pointer-events-none absolute -right-2 -top-2 h-16 w-16 rounded-full bg-cyan-300/30 blur-xl" />
+        <img
+          src={utility3dImage}
+          alt="3D utility illustration"
+          className="float-soft glow-cyan w-full rounded-xl border border-white/10 bg-slate-900/40 p-2"
+        />
       </div>
 
       <div className="mt-8 flex flex-wrap gap-3 text-xs text-slate-300 sm:text-sm">
