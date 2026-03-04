@@ -26,15 +26,30 @@ function mapBillRow(row) {
   };
 }
 
+function mapProviderRow(row) {
+  return {
+    name: row.name,
+    address: row.address ?? "",
+    logo: row.logo ?? "",
+    phone: row.phone ?? ""
+  };
+}
+
 export async function initializeDatabase() {
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
     await client.query(`
       CREATE TABLE IF NOT EXISTS providers (
-        name TEXT PRIMARY KEY
+        name TEXT PRIMARY KEY,
+        address TEXT NOT NULL DEFAULT '',
+        logo TEXT NOT NULL DEFAULT '',
+        phone TEXT NOT NULL DEFAULT ''
       );
     `);
+    await client.query("ALTER TABLE providers ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT ''");
+    await client.query("ALTER TABLE providers ADD COLUMN IF NOT EXISTS logo TEXT NOT NULL DEFAULT ''");
+    await client.query("ALTER TABLE providers ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT ''");
     await client.query(`
       CREATE TABLE IF NOT EXISTS bills (
         id UUID PRIMARY KEY,
@@ -49,7 +64,10 @@ export async function initializeDatabase() {
     const existingProviders = await client.query("SELECT COUNT(*)::INT AS count FROM providers");
     if (existingProviders.rows[0].count === 0) {
       for (const provider of DEFAULT_PROVIDERS) {
-        await client.query("INSERT INTO providers(name) VALUES ($1) ON CONFLICT DO NOTHING", [provider]);
+        await client.query(
+          "INSERT INTO providers(name, address, logo, phone) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+          [provider.name, provider.address, provider.logo, provider.phone]
+        );
       }
     }
     await client.query("COMMIT");
@@ -62,21 +80,23 @@ export async function initializeDatabase() {
 }
 
 export async function listProviders() {
-  const result = await getPool().query("SELECT name FROM providers ORDER BY name ASC");
-  return result.rows.map((row) => row.name);
+  const result = await getPool().query(
+    "SELECT name, address, logo, phone FROM providers ORDER BY LOWER(name) ASC"
+  );
+  return result.rows.map(mapProviderRow);
 }
 
-export async function addProvider(name) {
+export async function addProvider(provider) {
   const result = await getPool().query(
-    `INSERT INTO providers(name)
-     SELECT $1
+    `INSERT INTO providers(name, address, logo, phone)
+     SELECT $1, $2, $3, $4
      WHERE NOT EXISTS (
        SELECT 1 FROM providers WHERE LOWER(name) = LOWER($1)
      )
-     RETURNING name`,
-    [name]
+     RETURNING name, address, logo, phone`,
+    [provider.name, provider.address, provider.logo, provider.phone]
   );
-  return result.rows[0]?.name ?? null;
+  return result.rows[0] ? mapProviderRow(result.rows[0]) : null;
 }
 
 export async function removeProvider(name) {
@@ -121,6 +141,36 @@ export async function insertBill(bill) {
     [bill.id, bill.provider, bill.amount, bill.billDate, bill.billingMonth, bill.status]
   );
   return mapBillRow(result.rows[0]);
+}
+
+export async function insertBillsBulk(bills) {
+  if (!Array.isArray(bills) || bills.length === 0) {
+    return [];
+  }
+
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = [];
+    for (const bill of bills) {
+      const result = await client.query(
+        `
+          INSERT INTO bills(id, provider, amount, bill_date, billing_month, status)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id, provider, amount, bill_date, billing_month, status
+        `,
+        [bill.id, bill.provider, bill.amount, bill.billDate, bill.billingMonth, bill.status]
+      );
+      inserted.push(mapBillRow(result.rows[0]));
+    }
+    await client.query("COMMIT");
+    return inserted;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateBillStatus(id, status) {

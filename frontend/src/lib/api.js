@@ -25,10 +25,10 @@ export const api = {
   getProviders() {
     return request("/api/providers");
   },
-  addProvider(name) {
+  addProvider(provider) {
     return request("/api/providers", {
       method: "POST",
-      body: JSON.stringify({ name })
+      body: JSON.stringify(provider)
     });
   },
   deleteProvider(name) {
@@ -41,6 +41,12 @@ export const api = {
   },
   addBill(input) {
     return request("/api/bills", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+  importBillsCsv(input) {
+    return request("/api/bills/import", {
       method: "POST",
       body: JSON.stringify(input)
     });

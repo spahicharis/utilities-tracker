@@ -14,13 +14,16 @@ router.get("/", async (_req, res) => {
 
 router.post("/", async (req, res) => {
   const name = String(req.body?.name || "").trim();
+  const address = String(req.body?.address || "").trim();
+  const logo = String(req.body?.logo || "").trim();
+  const phone = String(req.body?.phone || "").trim();
   if (!name) {
     res.status(400).json({ error: "Provider name is required." });
     return;
   }
 
   try {
-    const created = await addProvider(name);
+    const created = await addProvider({ name, address, logo, phone });
     if (!created) {
       res.status(409).json({ error: "Provider already exists." });
       return;

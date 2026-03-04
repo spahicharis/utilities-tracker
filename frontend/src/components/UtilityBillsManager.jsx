@@ -8,6 +8,10 @@ function UtilityBillsManager({ providers = [] }) {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
   const [form, setForm] = useState(() => ({
     provider: "",
     amount: "",
@@ -15,6 +19,19 @@ function UtilityBillsManager({ providers = [] }) {
     billingMonth: new Date().toISOString().slice(0, 7),
     status: "Pending"
   }));
+  const [importForm, setImportForm] = useState(() => ({
+    provider: "",
+    year: String(new Date().getFullYear()),
+    status: "Pending",
+    csv: ""
+  }));
+  const providerNames = useMemo(
+    () =>
+      providers.map((provider) =>
+        typeof provider === "string" ? provider : String(provider?.name || "").trim()
+      ).filter(Boolean),
+    [providers]
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -59,6 +76,9 @@ function UtilityBillsManager({ providers = [] }) {
   const onChange = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
+  const onImportChange = (field, value) => {
+    setImportForm((current) => ({ ...current, [field]: value }));
+  };
 
   const addBill = async (event) => {
     event.preventDefault();
@@ -82,6 +102,7 @@ function UtilityBillsManager({ providers = [] }) {
         setBills((current) => [data.bill, ...current]);
       }
       setForm((current) => ({ ...current, provider: "", amount: "", billDate: "", status: "Pending" }));
+      setIsDialogOpen(false);
     } catch (_error) {
       setError("Failed to add bill.");
     }
@@ -115,6 +136,39 @@ function UtilityBillsManager({ providers = [] }) {
     }
   };
 
+  const importBills = async (event) => {
+    event.preventDefault();
+    setError("");
+    setImportMessage("");
+    const provider = importForm.provider.trim();
+    const year = importForm.year.trim();
+    const csv = importForm.csv.trim();
+    if (!provider || !year || !csv) {
+      setError("Provider, year, and CSV values are required for import.");
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const data = await api.importBillsCsv({
+        provider,
+        year,
+        status: importForm.status,
+        csv
+      });
+      if (Array.isArray(data?.bills)) {
+        setBills(data.bills);
+      }
+      setImportMessage(`Imported ${Number(data?.insertedCount || 0)} bills.`);
+      setImportForm((current) => ({ ...current, csv: "" }));
+      setIsImportDialogOpen(false);
+    } catch (_error) {
+      setError("Failed to import bills from CSV.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <section className="rounded-2xl bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -122,15 +176,38 @@ function UtilityBillsManager({ providers = [] }) {
           <h2 className="font-['Manrope',sans-serif] text-2xl font-bold">Monthly Utility Bills</h2>
           <p className="mt-1 text-sm text-slate-600">Track invoices from email by provider, amount, date, and status.</p>
         </div>
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Filter month</span>
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(event) => setSelectedMonth(event.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
-          />
-        </label>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Filter month</span>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(event) => setSelectedMonth(event.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              setIsDialogOpen(true);
+            }}
+            className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            Add Bill
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              setImportMessage("");
+              setIsImportDialogOpen(true);
+            }}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+          >
+            Import CSV Bills
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -144,79 +221,7 @@ function UtilityBillsManager({ providers = [] }) {
       </p>
       {loading ? <p className="mt-2 text-sm text-slate-500">Loading bills...</p> : null}
       {error ? <p className="mt-2 text-sm text-rose-700">{error}</p> : null}
-
-      <form className="mt-6 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={addBill}>
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Provider</span>
-          <input
-            list="provider-suggestions"
-            value={form.provider}
-            onChange={(event) => onChange("provider", event.target.value)}
-            placeholder="Electricity"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
-          />
-          <datalist id="provider-suggestions">
-            {providers.map((provider) => (
-              <option key={provider} value={provider} />
-            ))}
-          </datalist>
-        </label>
-
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Amount</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.amount}
-            onChange={(event) => onChange("amount", event.target.value)}
-            placeholder="0.00"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
-          />
-        </label>
-
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Bill date</span>
-          <input
-            type="date"
-            value={form.billDate}
-            onChange={(event) => onChange("billDate", event.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
-          />
-        </label>
-
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</span>
-          <input
-            type="month"
-            value={form.billingMonth}
-            onChange={(event) => onChange("billingMonth", event.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
-          />
-        </label>
-
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
-          <select
-            value={form.status}
-            onChange={(event) => onChange("status", event.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
-          >
-            {STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button
-          type="submit"
-          className="md:col-span-2 xl:col-span-5 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-        >
-          Add Bill
-        </button>
-      </form>
+      {importMessage ? <p className="mt-2 text-sm text-emerald-700">{importMessage}</p> : null}
 
       <div className="mt-6 overflow-hidden rounded-xl border border-slate-200">
         <table className="w-full border-collapse text-left text-sm">
@@ -271,6 +276,188 @@ function UtilityBillsManager({ providers = [] }) {
           </tbody>
         </table>
       </div>
+
+      {isDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="font-['Manrope',sans-serif] text-xl font-bold">Add Bill</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDialogOpen(false);
+                  setError("");
+                }}
+                className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <form className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5" onSubmit={addBill}>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Provider</span>
+                <input
+                  list="provider-suggestions"
+                  value={form.provider}
+                  onChange={(event) => onChange("provider", event.target.value)}
+                  placeholder="Electricity"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                />
+                <datalist id="provider-suggestions">
+                  {providerNames.map((provider) => (
+                    <option key={provider} value={provider} />
+                  ))}
+                </datalist>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Amount</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={(event) => onChange("amount", event.target.value)}
+                  placeholder="0.00"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Bill date</span>
+                <input
+                  type="date"
+                  value={form.billDate}
+                  onChange={(event) => onChange("billDate", event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</span>
+                <input
+                  type="month"
+                  value={form.billingMonth}
+                  onChange={(event) => onChange("billingMonth", event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
+                <select
+                  value={form.status}
+                  onChange={(event) => onChange("status", event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                >
+                  {STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                type="submit"
+                className="md:col-span-2 xl:col-span-5 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Save Bill
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isImportDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="font-['Manrope',sans-serif] text-xl font-bold">Import Bills from CSV</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsImportDialogOpen(false);
+                  setError("");
+                }}
+                className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-slate-600">
+              Pick one provider and year. Enter one amount per line. Values are assigned from January onward.
+              Example:
+              <span className="whitespace-pre-line font-semibold">{"\n100 KM\n24 KM\n35 KM"}</span>
+            </p>
+
+            <form className="mt-4 grid gap-3 md:grid-cols-2" onSubmit={importBills}>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Provider</span>
+                <input
+                  list="provider-import-suggestions"
+                  value={importForm.provider}
+                  onChange={(event) => onImportChange("provider", event.target.value)}
+                  placeholder="Electricity"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                />
+                <datalist id="provider-import-suggestions">
+                  {providerNames.map((provider) => (
+                    <option key={provider} value={provider} />
+                  ))}
+                </datalist>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</span>
+                <input
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  value={importForm.year}
+                  onChange={(event) => onImportChange("year", event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                />
+              </label>
+
+              <label className="block md:col-span-2">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
+                <select
+                  value={importForm.status}
+                  onChange={(event) => onImportChange("status", event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                >
+                  {STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block md:col-span-2">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Amounts (One Per Line)</span>
+                <textarea
+                  value={importForm.csv}
+                  onChange={(event) => onImportChange("csv", event.target.value)}
+                  rows={4}
+                  placeholder={"100 KM\n24 KM\n35 KM"}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={isImporting}
+                className="md:col-span-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isImporting ? "Importing..." : "Import Bills"}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

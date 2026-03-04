@@ -58,13 +58,16 @@ On startup, the backend creates `providers` and `bills` tables automatically if 
 
 Providers:
 - `GET /api/providers`
-- `POST /api/providers` with body `{ "name": "Water Supply" }`
+- `POST /api/providers` with body `{ "name": "Water Supply", "address": "Main St 1", "phone": "+387 33 000 000", "logo": "https://..." }`
 - `DELETE /api/providers/:name`
 
 Bills:
 - `GET /api/bills?month=YYYY-MM&year=YYYY`
 - `POST /api/bills` with body:
   `{ "provider": "Electricity", "amount": 120.55, "billDate": "2026-03-01", "billingMonth": "2026-03", "status": "Pending" }`
+- `POST /api/bills/import` with body:
+  `{ "provider": "Electricity", "year": "2026", "status": "Pending", "csv": "100 KM\n24 KM\n35 KM" }`
+  (newline-delimited values are mapped to January onward in the selected year; max 12 values)
 - `PATCH /api/bills/:id/status` with body `{ "status": "Paid" }`
 - `DELETE /api/bills/:id`
 

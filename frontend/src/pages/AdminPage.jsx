@@ -31,9 +31,9 @@ function AdminPage({ userName, onLogout }) {
     };
   }, []);
 
-  const addProvider = async (providerName) => {
+  const addProvider = async (providerInput) => {
     try {
-      const data = await api.addProvider(providerName);
+      const data = await api.addProvider(providerInput);
       if (Array.isArray(data?.providers)) {
         setProviders(data.providers);
         return true;
