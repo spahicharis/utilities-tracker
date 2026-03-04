@@ -1,15 +1,20 @@
 import { Router } from "express";
 import { TRACKING_START_YEAR } from "../config/constants.js";
 import { getYearFromBill } from "../lib/bills.js";
-import { readDb } from "../lib/store.js";
+import { listBills } from "../lib/db.js";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
   const currentYear = new Date().getFullYear();
   const selectedYear = String(req.query.year || currentYear);
-  const db = await readDb();
-  const bills = db.bills;
+  let bills = [];
+  try {
+    bills = await listBills();
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load dashboard data." });
+    return;
+  }
 
   const years = [];
   for (let year = TRACKING_START_YEAR; year <= currentYear; year += 1) {

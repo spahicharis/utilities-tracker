@@ -8,6 +8,14 @@
   ],
   "bills": [
     {
+      "id": "a32ec006-3f8d-45d0-8ab1-39b549e4f3c7",
+      "provider": "Waste Collection",
+      "amount": 233,
+      "billDate": "2026-03-12",
+      "billingMonth": "2026-03",
+      "status": "Paid"
+    },
+    {
       "id": "f127b84a-6a27-4cad-88a5-97f0ece0ed4f",
       "provider": "Heating Company",
       "amount": 167,

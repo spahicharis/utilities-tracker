@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { BILL_STATUS_OPTIONS } from "../config/constants.js";
-import { getMonthFromBill, getYearFromBill, isValidStatus, parseAmount } from "../lib/bills.js";
-import { readDb, writeDb } from "../lib/store.js";
+import { isValidStatus, parseAmount } from "../lib/bills.js";
+import { insertBill, listBills, removeBill, updateBillStatus } from "../lib/db.js";
 
 const router = Router();
 
@@ -10,18 +10,12 @@ router.get("/", async (req, res) => {
   const month = typeof req.query.month === "string" ? req.query.month : "";
   const year = typeof req.query.year === "string" ? req.query.year : "";
 
-  const db = await readDb();
-  let list = [...db.bills];
-
-  if (month) {
-    list = list.filter((bill) => getMonthFromBill(bill) === month);
+  try {
+    const bills = await listBills({ month, year });
+    res.json({ bills });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load bills." });
   }
-  if (year) {
-    list = list.filter((bill) => getYearFromBill(bill) === year);
-  }
-
-  list.sort((a, b) => b.billDate.localeCompare(a.billDate));
-  res.json({ bills: list });
 });
 
 router.post("/", async (req, res) => {
@@ -48,19 +42,20 @@ router.post("/", async (req, res) => {
     return;
   }
 
-  const db = await readDb();
-  const nextBill = {
-    id: randomUUID(),
-    provider,
-    amount,
-    billDate,
-    billingMonth,
-    status
-  };
-
-  const bills = [nextBill, ...db.bills];
-  await writeDb({ ...db, bills });
-  res.status(201).json({ bill: nextBill, bills });
+  try {
+    const nextBill = await insertBill({
+      id: randomUUID(),
+      provider,
+      amount,
+      billDate,
+      billingMonth,
+      status
+    });
+    const bills = await listBills();
+    res.status(201).json({ bill: nextBill, bills });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create bill." });
+  }
 });
 
 router.patch("/:id/status", async (req, res) => {
@@ -71,17 +66,17 @@ router.patch("/:id/status", async (req, res) => {
     return;
   }
 
-  const db = await readDb();
-  const billIndex = db.bills.findIndex((bill) => bill.id === id);
-  if (billIndex < 0) {
-    res.status(404).json({ error: "Bill not found." });
-    return;
+  try {
+    const bill = await updateBillStatus(id, status);
+    if (!bill) {
+      res.status(404).json({ error: "Bill not found." });
+      return;
+    }
+    const bills = await listBills();
+    res.json({ bill, bills });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update bill status." });
   }
-
-  const bills = [...db.bills];
-  bills[billIndex] = { ...bills[billIndex], status };
-  await writeDb({ ...db, bills });
-  res.json({ bill: bills[billIndex], bills });
 });
 
 router.delete("/:id", async (req, res) => {
@@ -91,15 +86,17 @@ router.delete("/:id", async (req, res) => {
     return;
   }
 
-  const db = await readDb();
-  const bills = db.bills.filter((bill) => bill.id !== id);
-  if (bills.length === db.bills.length) {
-    res.status(404).json({ error: "Bill not found." });
-    return;
+  try {
+    const deleted = await removeBill(id);
+    if (!deleted) {
+      res.status(404).json({ error: "Bill not found." });
+      return;
+    }
+    const bills = await listBills();
+    res.json({ bills });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete bill." });
   }
-
-  await writeDb({ ...db, bills });
-  res.json({ bills });
 });
 
 export default router;

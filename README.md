@@ -53,7 +53,8 @@ Tailwind config files:
 
 ## Backend API
 
-Data is persisted in `backend/data/db.json`.
+Data is persisted in Supabase Postgres using `POSTGRES_DB_URL`.
+On startup, the backend creates `providers` and `bills` tables automatically if they do not exist.
 
 Providers:
 - `GET /api/providers`

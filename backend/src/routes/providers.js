@@ -1,11 +1,15 @@
 import { Router } from "express";
-import { readDb, writeDb } from "../lib/store.js";
+import { addProvider, listProviders, removeProvider } from "../lib/db.js";
 
 const router = Router();
 
 router.get("/", async (_req, res) => {
-  const db = await readDb();
-  res.json({ providers: db.providers });
+  try {
+    const providers = await listProviders();
+    res.json({ providers });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load providers." });
+  }
 });
 
 router.post("/", async (req, res) => {
@@ -15,16 +19,17 @@ router.post("/", async (req, res) => {
     return;
   }
 
-  const db = await readDb();
-  const exists = db.providers.some((provider) => provider.toLowerCase() === name.toLowerCase());
-  if (exists) {
-    res.status(409).json({ error: "Provider already exists." });
-    return;
+  try {
+    const created = await addProvider(name);
+    if (!created) {
+      res.status(409).json({ error: "Provider already exists." });
+      return;
+    }
+    const providers = await listProviders();
+    res.status(201).json({ providers });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to add provider." });
   }
-
-  const next = [...db.providers, name];
-  await writeDb({ ...db, providers: next });
-  res.status(201).json({ providers: next });
 });
 
 router.delete("/:name", async (req, res) => {
@@ -35,15 +40,17 @@ router.delete("/:name", async (req, res) => {
   }
 
   const decoded = decodeURIComponent(name);
-  const db = await readDb();
-  const next = db.providers.filter((provider) => provider !== decoded);
-  if (next.length === db.providers.length) {
-    res.status(404).json({ error: "Provider not found." });
-    return;
+  try {
+    const deleted = await removeProvider(decoded);
+    if (!deleted) {
+      res.status(404).json({ error: "Provider not found." });
+      return;
+    }
+    const providers = await listProviders();
+    res.json({ providers });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete provider." });
   }
-
-  await writeDb({ ...db, providers: next });
-  res.json({ providers: next });
 });
 
 export default router;
