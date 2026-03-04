@@ -6,6 +6,8 @@ const STATUS_OPTIONS = ["Pending", "Paid", "Overdue"];
 function UtilityBillsManager({ providers = [] }) {
   const [bills, setBills] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedProvider, setSelectedProvider] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -32,6 +34,30 @@ function UtilityBillsManager({ providers = [] }) {
       ).filter(Boolean),
     [providers]
   );
+  const yearOptions = useMemo(() => {
+    const years = Array.from(
+      new Set(
+        bills
+          .map((bill) =>
+            typeof bill?.billingMonth === "string" && bill.billingMonth.length >= 4
+              ? bill.billingMonth.slice(0, 4)
+              : ""
+          )
+          .filter(Boolean)
+      )
+    );
+    return years.sort((a, b) => b.localeCompare(a));
+  }, [bills]);
+  const providerFilterOptions = useMemo(() => {
+    const names = Array.from(
+      new Set(
+        bills
+          .map((bill) => String(bill?.provider || "").trim())
+          .filter(Boolean)
+      )
+    );
+    return names.sort((a, b) => a.localeCompare(b));
+  }, [bills]);
 
   useEffect(() => {
     let isActive = true;
@@ -60,9 +86,18 @@ function UtilityBillsManager({ providers = [] }) {
   }, []);
 
   const filteredBills = useMemo(() => {
-    const list = selectedMonth ? bills.filter((bill) => bill.billingMonth === selectedMonth) : bills;
+    let list = bills;
+    if (selectedYear) {
+      list = list.filter((bill) => String(bill?.billingMonth || "").startsWith(`${selectedYear}-`));
+    }
+    if (selectedProvider) {
+      list = list.filter((bill) => String(bill?.provider || "") === selectedProvider);
+    }
+    if (selectedMonth) {
+      list = list.filter((bill) => bill.billingMonth === selectedMonth);
+    }
     return [...list].sort((a, b) => b.billDate.localeCompare(a.billDate));
-  }, [bills, selectedMonth]);
+  }, [bills, selectedMonth, selectedProvider, selectedYear]);
 
   const totalAmount = useMemo(
     () => filteredBills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0),
@@ -178,11 +213,50 @@ function UtilityBillsManager({ providers = [] }) {
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Filter provider</span>
+            <select
+              value={selectedProvider}
+              onChange={(event) => setSelectedProvider(event.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+            >
+              <option value="">All providers</option>
+              {providerFilterOptions.map((provider) => (
+                <option key={provider} value={provider}>
+                  {provider}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Filter year</span>
+            <select
+              value={selectedYear}
+              onChange={(event) => {
+                setSelectedYear(event.target.value);
+                setSelectedMonth("");
+              }}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
+            >
+              <option value="">All years</option>
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Filter month</span>
             <input
               type="month"
               value={selectedMonth}
-              onChange={(event) => setSelectedMonth(event.target.value)}
+              onChange={(event) => {
+                const month = event.target.value;
+                setSelectedMonth(month);
+                if (month) {
+                  setSelectedYear(month.slice(0, 4));
+                }
+              }}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
             />
           </label>
