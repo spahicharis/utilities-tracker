@@ -18,7 +18,8 @@ function DashboardPage() {
     cards: { total: 0, count: 0, paid: 0, pending: 0, overdue: 0, paidRate: 0 },
     yearlyTotals: [],
     statusSplit: { paid: 0, pending: 0, overdue: 0 },
-    topProviders: []
+    topProviders: [],
+    unpaidBills: []
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -40,7 +41,8 @@ function DashboardPage() {
           cards: payload?.cards ?? { total: 0, count: 0, paid: 0, pending: 0, overdue: 0, paidRate: 0 },
           yearlyTotals: Array.isArray(payload?.yearlyTotals) ? payload.yearlyTotals : [],
           statusSplit: payload?.statusSplit ?? { paid: 0, pending: 0, overdue: 0 },
-          topProviders: Array.isArray(payload?.topProviders) ? payload.topProviders : []
+          topProviders: Array.isArray(payload?.topProviders) ? payload.topProviders : [],
+          unpaidBills: Array.isArray(payload?.unpaidBills) ? payload.unpaidBills : []
         });
       } catch (_error) {
         if (isActive) {
@@ -130,9 +132,7 @@ function DashboardPage() {
               Year-based view of your utility spending history from {data.trackingStartYear} to {currentYear}.
             </p>
           </div>
-          <div className="float-soft-delayed hidden w-56 rounded-xl border border-slate-200 bg-slate-50 p-2 lg:block">
-            <img src={dashboard3dImage} alt="3D dashboard illustration" className="w-full rounded-lg" />
-          </div>
+
           <label>
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</span>
             <select
@@ -149,6 +149,48 @@ function DashboardPage() {
           </label>
         </div>
       </div>
+
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-['Manrope',sans-serif] text-xl font-bold">Unpaid Bills ({selectedYear})</h2>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+            {data.unpaidBills.length} open
+          </span>
+        </div>
+        <p className="mt-1 text-sm text-slate-600">Pending and overdue bills that still need action.</p>
+
+        {data.unpaidBills.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-500">No unpaid bills for this year.</p>
+        ) : (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {data.unpaidBills.map((bill) => {
+                const isOverdue = bill.status === "Overdue";
+                const cardStyle = isOverdue
+                    ? "border-rose-200 bg-gradient-to-br from-rose-50 via-rose-100 to-white"
+                    : "border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-white";
+                const badgeStyle = isOverdue
+                    ? "bg-rose-600 text-white"
+                    : "bg-amber-500 text-amber-950";
+                return (
+                    <article key={bill.id} className={`rounded-xl border p-4 shadow-sm ${cardStyle}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-slate-900">{bill.provider || "Unknown provider"}</h3>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badgeStyle}`}>
+                      {bill.status}
+                    </span>
+                      </div>
+                      <p className="mt-2 text-2xl font-bold text-slate-900">
+                        {Number(bill.amount || 0).toFixed(2)} {bill.currency || "KM"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-700">Billing month: {bill.billingMonth || "-"}</p>
+                      <p className="mt-1 text-xs text-slate-700">Bill date: {bill.billDate || "-"}</p>
+                    </article>
+                );
+              })}
+            </div>
+        )}
+      </section>
+
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
@@ -199,7 +241,7 @@ function DashboardPage() {
                     {point.label}
                   </text>
                   <text x={point.x} y={point.y - 10} textAnchor="middle" fontSize="10" fill="#0f172a">
-                    ${point.value.toFixed(0)}
+                    {point.value.toFixed(0)} KM
                   </text>
                 </g>
               ))}
@@ -263,6 +305,7 @@ function DashboardPage() {
           </div>
         </div>
       </section>
+
     </>
   );
 }

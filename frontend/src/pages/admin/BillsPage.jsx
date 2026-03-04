@@ -16,9 +16,6 @@ function BillsPage() {
               Add monthly bills from your email and keep track of provider, amount, date, and payment status.
             </p>
           </div>
-          <div className="float-soft hidden w-40 rounded-xl border border-slate-200 bg-slate-50 p-2 md:block">
-            <img src={utility3dImage} alt="3D bills illustration" className="w-full rounded-lg" />
-          </div>
         </div>
       </div>
 

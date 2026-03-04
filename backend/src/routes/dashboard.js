@@ -43,6 +43,18 @@ router.get("/", async (req, res) => {
     .map(([provider, amount]) => ({ provider, amount: Number(amount.toFixed(2)) }))
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 6);
+  const unpaidBills = selectedYearBills
+    .filter((bill) => bill.status === "Pending" || bill.status === "Overdue")
+    .sort((a, b) => String(b.billDate || "").localeCompare(String(a.billDate || "")))
+    .map((bill) => ({
+      id: bill.id,
+      provider: bill.provider,
+      amount: Number(bill.amount || 0),
+      currency: bill.currency || "KM",
+      billDate: bill.billDate,
+      billingMonth: bill.billingMonth,
+      status: bill.status
+    }));
 
   res.json({
     selectedYear,
@@ -58,7 +70,8 @@ router.get("/", async (req, res) => {
     },
     yearlyTotals,
     statusSplit: { paid, pending, overdue },
-    topProviders
+    topProviders,
+    unpaidBills
   });
 });
 
