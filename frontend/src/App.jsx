@@ -1,56 +1,47 @@
-import "./App.css";
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import AdminPage from "./pages/AdminPage";
+import BillsPage from "./pages/admin/BillsPage";
+import DashboardPage from "./pages/admin/DashboardPage";
+import LoginPage from "./pages/LoginPage";
+import ProvidersPage from "./pages/admin/ProvidersPage";
 
 function App() {
-  const [health, setHealth] = useState(null);
-  const [error, setError] = useState("");
+  const [userName, setUserName] = useState(() => localStorage.getItem("ut_user_name") || "");
+  const isAuthenticated = Boolean(userName);
 
-  const healthUrl = useMemo(() => {
-    const apiBase = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-    return apiBase ? `${apiBase}/api/health` : "/api/health";
-  }, []);
+  const login = (email) => {
+    const name = email.split("@")[0] || "Admin";
+    setUserName(name);
+    localStorage.setItem("ut_user_name", name);
+  };
 
-  useEffect(() => {
-    let isActive = true;
-
-    const loadHealth = async () => {
-      try {
-        const response = await fetch(healthUrl);
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
-        }
-        const data = await response.json();
-        if (isActive) {
-          setHealth(data);
-        }
-      } catch (requestError) {
-        if (isActive) {
-          setError(requestError.message || "Unable to fetch backend health.");
-        }
-      }
-    };
-
-    loadHealth();
-
-    return () => {
-      isActive = false;
-    };
-  }, [healthUrl]);
+  const logout = () => {
+    setUserName("");
+    localStorage.removeItem("ut_user_name");
+  };
 
   return (
-    <main className="app">
-      <h1>Utilities Tracker</h1>
-      <p>React frontend is ready.</p>
-      {health ? (
-        <p className="status ok">
-          Backend health: <strong>{health.status}</strong> ({health.service})
-        </p>
-      ) : error ? (
-        <p className="status error">Backend health error: {error}</p>
-      ) : (
-        <p className="status loading">Checking backend health...</p>
-      )}
-    </main>
+    <Routes>
+      <Route path="/" element={<Navigate to={isAuthenticated ? "/admin" : "/login"} replace />} />
+      <Route
+        path="/login"
+        element={isAuthenticated ? <Navigate to="/admin" replace /> : <LoginPage onLogin={login} />}
+      />
+      <Route
+        path="/admin/*"
+        element={
+          isAuthenticated ? <AdminPage userName={userName} onLogout={logout} /> : <Navigate to="/login" replace />
+        }
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="bills" element={<BillsPage />} />
+        <Route path="providers" element={<ProvidersPage />} />
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
+      </Route>
+      <Route path="*" element={<Navigate to={isAuthenticated ? "/admin" : "/login"} replace />} />
+    </Routes>
   );
 }
 

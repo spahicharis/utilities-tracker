@@ -1,0 +1,30 @@
+{
+  "providers": [
+    "Water Supply",
+    "Heating Company",
+    "Internet Provider",
+    "Waste Collection",
+    "KJKP Rad"
+  ],
+  "bills": [
+    {
+      "id": "f127b84a-6a27-4cad-88a5-97f0ece0ed4f",
+      "provider": "Heating Company",
+      "amount": 167,
+      "billDate": "2026-03-03",
+      "billingMonth": "2026-02",
+      "status": "Pending"
+    },
+    {
+      "id": "0141bbb7-8ffb-45a9-a980-00f6f39e4362",
+      "provider": "Water Supply",
+      "amount": 100,
+      "billDate": "2026-03-03",
+      "billingMonth": "2026-02",
+      "status": "Paid"
+    }
+  ],
+  "meta": {
+    "trackingStartYear": 2019
+  }
+}
