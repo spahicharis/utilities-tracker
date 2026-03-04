@@ -31,6 +31,12 @@ export const api = {
       body: JSON.stringify(provider)
     });
   },
+  updateProvider(name, provider) {
+    return request(`/api/providers/${encodeURIComponent(name)}`, {
+      method: "PATCH",
+      body: JSON.stringify(provider)
+    });
+  },
   deleteProvider(name) {
     return request(`/api/providers/${encodeURIComponent(name)}`, {
       method: "DELETE"

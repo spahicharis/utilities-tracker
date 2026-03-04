@@ -59,6 +59,7 @@ On startup, the backend creates `providers` and `bills` tables automatically if 
 Providers:
 - `GET /api/providers`
 - `POST /api/providers` with body `{ "name": "Water Supply", "address": "Main St 1", "phone": "+387 33 000 000", "logo": "https://..." }`
+- `PATCH /api/providers/:name` with body `{ "name": "Water Supply Updated", "address": "Main St 2", "phone": "+387 33 111 111", "logo": "https://..." }`
 - `DELETE /api/providers/:name`
 
 Bills:

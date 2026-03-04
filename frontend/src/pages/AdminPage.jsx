@@ -55,6 +55,19 @@ function AdminPage({ userName, onLogout }) {
     }
   };
 
+  const editProvider = async (originalName, providerInput) => {
+    try {
+      const data = await api.updateProvider(originalName, providerInput);
+      if (Array.isArray(data?.providers)) {
+        setProviders(data.providers);
+        return true;
+      }
+      return false;
+    } catch (_error) {
+      return false;
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-100 text-slate-900">
       <AdminNavbar userName={userName} onLogout={onLogout} />
@@ -69,6 +82,7 @@ function AdminPage({ userName, onLogout }) {
                 userName,
                 providers,
                 addProvider,
+                editProvider,
                 deleteProvider
               }}
             />

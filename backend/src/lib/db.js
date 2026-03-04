@@ -99,6 +99,56 @@ export async function addProvider(provider) {
   return result.rows[0] ? mapProviderRow(result.rows[0]) : null;
 }
 
+export async function updateProvider(originalName, provider) {
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+
+    const existing = await client.query("SELECT name FROM providers WHERE name = $1", [originalName]);
+    if (!existing.rowCount) {
+      await client.query("ROLLBACK");
+      return { status: "not_found", provider: null };
+    }
+
+    const conflict = await client.query(
+      `
+        SELECT 1
+        FROM providers
+        WHERE LOWER(name) = LOWER($1)
+          AND LOWER(name) <> LOWER($2)
+        LIMIT 1
+      `,
+      [provider.name, originalName]
+    );
+    if (conflict.rowCount) {
+      await client.query("ROLLBACK");
+      return { status: "conflict", provider: null };
+    }
+
+    const updated = await client.query(
+      `
+        UPDATE providers
+        SET name = $2, address = $3, logo = $4, phone = $5
+        WHERE name = $1
+        RETURNING name, address, logo, phone
+      `,
+      [originalName, provider.name, provider.address, provider.logo, provider.phone]
+    );
+
+    if (originalName !== provider.name) {
+      await client.query("UPDATE bills SET provider = $2 WHERE provider = $1", [originalName, provider.name]);
+    }
+
+    await client.query("COMMIT");
+    return { status: "ok", provider: mapProviderRow(updated.rows[0]) };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function removeProvider(name) {
   const result = await getPool().query("DELETE FROM providers WHERE name = $1 RETURNING name", [name]);
   return Boolean(result.rowCount);

@@ -2,7 +2,7 @@ import { useOutletContext } from "react-router-dom";
 import ProviderManagement from "../../components/ProviderManagement";
 
 function ProvidersPage() {
-  const { providers, addProvider, deleteProvider } = useOutletContext();
+  const { providers, addProvider, editProvider, deleteProvider } = useOutletContext();
 
   return (
     <>
@@ -14,7 +14,12 @@ function ProvidersPage() {
         </p>
       </div>
 
-      <ProviderManagement providers={providers} onAddProvider={addProvider} onDeleteProvider={deleteProvider} />
+      <ProviderManagement
+        providers={providers}
+        onAddProvider={addProvider}
+        onEditProvider={editProvider}
+        onDeleteProvider={deleteProvider}
+      />
     </>
   );
 }
