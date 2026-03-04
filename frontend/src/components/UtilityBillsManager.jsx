@@ -415,7 +415,7 @@ function UtilityBillsManager({ providers = [] }) {
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
                 />
               </label>
-              <label className="block">
+              <label className="block hidden">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Currency</span>
                 <select
                   value={form.currency}
@@ -527,7 +527,7 @@ function UtilityBillsManager({ providers = [] }) {
                 />
               </label>
 
-              <label className="block md:col-span-2">
+              <label className="hidden md:col-span-2">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Currency</span>
                 <select
                   value={importForm.currency}

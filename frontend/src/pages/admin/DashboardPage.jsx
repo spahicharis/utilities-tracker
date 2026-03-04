@@ -4,9 +4,9 @@ import { api } from "../../lib/api";
 import dashboard3dImage from "../../assets/dashboard-3d.svg";
 
 const STATUS_OPTIONS = [
-  { key: "paid", label: "Paid", color: "bg-emerald-500" },
-  { key: "pending", label: "Pending", color: "bg-amber-500" },
-  { key: "overdue", label: "Overdue", color: "bg-rose-500" }
+  { key: "paid", label: "Paid", color: "bg-emerald-500", hex: "#10b981" },
+  { key: "pending", label: "Pending", color: "bg-amber-500", hex: "#f59e0b" },
+  { key: "overdue", label: "Overdue", color: "bg-rose-500", hex: "#f43f5e" }
 ];
 
 function DashboardPage() {
@@ -62,8 +62,62 @@ function DashboardPage() {
   const years = data.years.length ? data.years : [String(currentYear)];
   const yearlySeries = data.yearlyTotals;
   const maxYearAmount = Math.max(...yearlySeries.map((item) => Number(item.total || 0)), 1);
+  const chartWidth = 760;
+  const chartHeight = 260;
+  const chartPadding = { top: 20, right: 18, bottom: 34, left: 44 };
+  const chartInnerWidth = chartWidth - chartPadding.left - chartPadding.right;
+  const chartInnerHeight = chartHeight - chartPadding.top - chartPadding.bottom;
+  const yearTrendPoints = yearlySeries.map((item, index) => {
+    const x =
+      yearlySeries.length > 1 ? chartPadding.left + (index / (yearlySeries.length - 1)) * chartInnerWidth : chartPadding.left + chartInnerWidth / 2;
+    const value = Number(item.total || 0);
+    const y = chartPadding.top + chartInnerHeight - (value / maxYearAmount) * chartInnerHeight;
+    return { x, y, label: item.year, value };
+  });
+  const yearTrendPath = yearTrendPoints.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
   const providerBreakdown = data.topProviders;
-  const maxProviderAmount = Math.max(...providerBreakdown.map((item) => Number(item.amount || 0)), 1);
+  const statusSegments = STATUS_OPTIONS.map((status) => {
+    const count = Number(data.statusSplit[status.key] || 0);
+    const percent = data.cards.count > 0 ? (count / data.cards.count) * 100 : 0;
+    return { ...status, count, percent };
+  });
+  const statusPieGradient = (() => {
+    if (data.cards.count <= 0) {
+      return "conic-gradient(#e2e8f0 0deg 360deg)";
+    }
+    let current = 0;
+    const parts = statusSegments.map((segment) => {
+      const start = current;
+      const end = current + segment.percent * 3.6;
+      current = end;
+      return `${segment.hex} ${start}deg ${end}deg`;
+    });
+    return `conic-gradient(${parts.join(", ")})`;
+  })();
+  const providerPalette = ["#4f46e5", "#0ea5e9", "#22c55e", "#f59e0b", "#f97316", "#ef4444"];
+  const providerSegments = providerBreakdown.map((item, index) => {
+    const amount = Number(item.amount || 0);
+    const percent = data.cards.total > 0 ? (amount / Number(data.cards.total || 0)) * 100 : 0;
+    return {
+      provider: item.provider,
+      amount,
+      percent,
+      color: providerPalette[index % providerPalette.length]
+    };
+  });
+  const providerPieGradient = (() => {
+    if (providerSegments.length === 0 || data.cards.total <= 0) {
+      return "conic-gradient(#e2e8f0 0deg 360deg)";
+    }
+    let current = 0;
+    const parts = providerSegments.map((segment) => {
+      const start = current;
+      const end = current + segment.percent * 3.6;
+      current = end;
+      return `${segment.color} ${start}deg ${end}deg`;
+    });
+    return `conic-gradient(${parts.join(", ")})`;
+  })();
 
   return (
     <>
@@ -99,7 +153,7 @@ function DashboardPage() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label={`${selectedYear} Total`}
-          value={`$${Number(data.cards.total || 0).toFixed(2)}`}
+          value={`${Number(data.cards.total || 0).toFixed(2)} KM`}
           hint={`${data.cards.count || 0} bills`}
         />
         <MetricCard
@@ -116,42 +170,61 @@ function DashboardPage() {
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-['Manrope',sans-serif] text-xl font-bold">Yearly Spend Trend</h2>
         <p className="mt-1 text-sm text-slate-600">Total bill amounts by year.</p>
-        <div className="mt-5 grid gap-3">
-          {yearlySeries.map((item) => (
-            <div key={item.year}>
-              <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
-                <span>{item.year}</span>
-                <span>${Number(item.total || 0).toFixed(2)}</span>
-              </div>
-              <div className="h-2 rounded-full bg-slate-200">
-                <div
-                  className="h-full rounded-full bg-cyan-500"
-                  style={{
-                    width: `${Math.max(
-                      (Number(item.total || 0) / maxYearAmount) * 100,
-                      Number(item.total || 0) > 0 ? 3 : 0
-                    )}%`
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+        {yearlySeries.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">No yearly data available yet.</p>
+        ) : (
+          <div className="mt-5">
+            <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-72 w-full">
+              <line
+                x1={chartPadding.left}
+                y1={chartPadding.top + chartInnerHeight}
+                x2={chartPadding.left + chartInnerWidth}
+                y2={chartPadding.top + chartInnerHeight}
+                stroke="#cbd5e1"
+                strokeWidth="1.5"
+              />
+              <line
+                x1={chartPadding.left}
+                y1={chartPadding.top}
+                x2={chartPadding.left}
+                y2={chartPadding.top + chartInnerHeight}
+                stroke="#cbd5e1"
+                strokeWidth="1.5"
+              />
+              <path d={yearTrendPath} fill="none" stroke="#06b6d4" strokeWidth="3" strokeLinecap="round" />
+              {yearTrendPoints.map((point) => (
+                <g key={point.label}>
+                  <circle cx={point.x} cy={point.y} r="4.5" fill="#0891b2" />
+                  <text x={point.x} y={chartPadding.top + chartInnerHeight + 20} textAnchor="middle" fontSize="11" fill="#475569">
+                    {point.label}
+                  </text>
+                  <text x={point.x} y={point.y - 10} textAnchor="middle" fontSize="10" fill="#0f172a">
+                    ${point.value.toFixed(0)}
+                  </text>
+                </g>
+              ))}
+            </svg>
+          </div>
+        )}
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <h2 className="font-['Manrope',sans-serif] text-xl font-bold">Status Split ({selectedYear})</h2>
+          <div className="mt-4 flex justify-center">
+            <div className="relative h-40 w-40 rounded-full" style={{ background: statusPieGradient }}>
+              <div className="absolute inset-[22%] rounded-full bg-white" />
+            </div>
+          </div>
           <div className="mt-4 space-y-3">
-            {STATUS_OPTIONS.map((status) => {
-              const count = Number(data.statusSplit[status.key] || 0);
-              const percent = data.cards.count > 0 ? Math.round((count / data.cards.count) * 100) : 0;
+            {statusSegments.map((status) => {
+              const percent = Math.round(status.percent);
               return (
                 <div key={status.key}>
                   <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
                     <span>{status.label}</span>
                     <span>
-                      {count} ({percent}%)
+                      {status.count} ({percent}%)
                     </span>
                   </div>
                   <div className="h-2 rounded-full bg-slate-200">
@@ -166,21 +239,23 @@ function DashboardPage() {
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <h2 className="font-['Manrope',sans-serif] text-xl font-bold">Top Providers ({selectedYear})</h2>
           <p className="mt-1 text-sm text-slate-600">Highest spending providers for the selected year.</p>
+          <div className="mt-4 flex justify-center">
+            <div className="relative h-40 w-40 rounded-full" style={{ background: providerPieGradient }}>
+              <div className="absolute inset-[22%] rounded-full bg-white" />
+            </div>
+          </div>
           <div className="mt-4 space-y-3">
             {providerBreakdown.length === 0 ? (
               <p className="text-sm text-slate-500">No provider data for this year yet.</p>
             ) : (
-              providerBreakdown.map((item) => (
+              providerSegments.map((item) => (
                 <div key={item.provider}>
                   <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
-                    <span>{item.provider}</span>
-                    <span>${Number(item.amount || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-slate-200">
-                    <div
-                      className="h-full rounded-full bg-indigo-500"
-                      style={{ width: `${Math.max((Number(item.amount || 0) / maxProviderAmount) * 100, 3)}%` }}
-                    />
+                    <span className="inline-flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                      {item.provider}
+                    </span>
+                    <span>{Number(item.amount || 0).toFixed(2) } KM</span>
                   </div>
                 </div>
               ))

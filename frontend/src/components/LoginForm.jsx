@@ -72,14 +72,6 @@ function LoginForm({ onLogin }) {
           </button>
         </form>
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <button className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium transition hover:bg-slate-100">
-            Continue with Google
-          </button>
-          <button className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium transition hover:bg-slate-100">
-            Continue with GitHub
-          </button>
-        </div>
       </div>
     </article>
   );
