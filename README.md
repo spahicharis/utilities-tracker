@@ -116,3 +116,67 @@ Public route:
   - status split data
   - top providers data
   - unpaid bills list
+
+## Deploy On Linode (Docker)
+
+This repo includes:
+- `docker-compose.yml` for `backend`, `frontend`, and `caddy`
+- `backend/Dockerfile` and `frontend/Dockerfile`
+- `Caddyfile` for HTTPS and reverse proxy
+
+Traffic flow:
+- `https://util.SOME-DOMAIN.ba` -> `caddy` -> `frontend`
+- `https://util.SOME-DOMAIN.ba/api/*` -> `caddy` -> `backend`
+
+### 1) DNS
+
+Create an `A` record so `util.SOME-DOMAIN.ba` points to your Linode public IP.
+
+### 2) Prepare VPS
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose-plugin
+sudo systemctl enable --now docker
+```
+
+### 3) Upload and configure env
+
+```bash
+cp .env.vps.example .env
+cp backend/.env.example backend/.env
+```
+
+Set values in `.env`:
+- `DOMAIN=util.SOME-DOMAIN.ba`
+- `VITE_SUPABASE_URL=...`
+- `VITE_SUPABASE_ANON_KEY=...`
+
+Set values in `backend/.env`:
+- `POSTGRES_DB_URL=...`
+- `SUPABASE_URL=...`
+
+### 4) Build and run
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+### 5) Verify
+
+```bash
+docker compose ps
+curl -I https://util.SOME-DOMAIN.ba
+curl -s https://util.SOME-DOMAIN.ba/api/health
+```
+
+If `curl` shows TLS or connection issues, wait 1-2 minutes for Let's Encrypt issuance, then retry.
+
+### 6) Updates
+
+```bash
+git pull
+docker compose build
+docker compose up -d
+```
