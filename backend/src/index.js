@@ -4,6 +4,7 @@ import cors from "cors";
 import billsRoutes from "./routes/bills.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import providersRoutes from "./routes/providers.js";
+import propertiesRoutes from "./routes/properties.js";
 import { requireAuth } from "./middleware/requireAuth.js";
 import { initializeDatabase } from "./lib/db.js";
 
@@ -17,6 +18,7 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", service: "utilities-tracker-backend" });
 });
 
+app.use("/api/properties", requireAuth, propertiesRoutes);
 app.use("/api/providers", requireAuth, providersRoutes);
 app.use("/api/bills", requireAuth, billsRoutes);
 app.use("/api/dashboard", requireAuth, dashboardRoutes);

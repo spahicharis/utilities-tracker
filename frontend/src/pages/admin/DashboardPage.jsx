@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TRACKING_START_YEAR } from "../../lib/billingConfig";
 import { api } from "../../lib/api";
 import dashboard3dImage from "../../assets/dashboard-3d.svg";
+import { useOutletContext } from "react-router-dom";
 
 const STATUS_OPTIONS = [
   { key: "paid", label: "Paid", color: "bg-emerald-500", hex: "#10b981" },
@@ -11,6 +12,7 @@ const STATUS_OPTIONS = [
 
 function DashboardPage() {
   const currentYear = new Date().getFullYear();
+  const { selectedPropertyId, selectedPropertyName } = useOutletContext();
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
   const [data, setData] = useState({
     trackingStartYear: TRACKING_START_YEAR,
@@ -31,7 +33,7 @@ function DashboardPage() {
       setLoading(true);
       setError("");
       try {
-        const payload = await api.getDashboard(selectedYear);
+        const payload = await api.getDashboard(selectedYear, selectedPropertyId);
         if (!isActive) {
           return;
         }
@@ -59,7 +61,7 @@ function DashboardPage() {
     return () => {
       isActive = false;
     };
-  }, [selectedYear]);
+  }, [selectedPropertyId, selectedYear]);
 
   const years = data.years.length ? data.years : [String(currentYear)];
   const yearlySeries = data.yearlyTotals;
@@ -152,6 +154,9 @@ function DashboardPage() {
             <h1 className="mt-1 font-['Manrope',sans-serif] text-3xl font-bold">Dashboard</h1>
             <p className="mt-2 text-sm text-slate-600">
               Year-based view of your utility spending history from {data.trackingStartYear} to {currentYear}.
+            </p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-cyan-700">
+              Active property: {selectedPropertyName || "-"}
             </p>
           </div>
 

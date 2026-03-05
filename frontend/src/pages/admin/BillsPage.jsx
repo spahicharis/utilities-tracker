@@ -3,7 +3,7 @@ import UtilityBillsManager from "../../components/UtilityBillsManager";
 import utility3dImage from "../../assets/utility-3d.svg";
 
 function BillsPage() {
-  const { userName, providers } = useOutletContext();
+  const { userName, providers, selectedPropertyId, selectedPropertyName } = useOutletContext();
 
   return (
     <>
@@ -15,11 +15,14 @@ function BillsPage() {
             <p className="mt-2 text-sm text-slate-600">
               Add monthly bills from your email and keep track of provider, amount, date, and payment status.
             </p>
+            <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-cyan-700">
+              Active property: {selectedPropertyName || "-"}
+            </p>
           </div>
         </div>
       </div>
 
-      <UtilityBillsManager providers={providers} />
+      <UtilityBillsManager providers={providers} selectedPropertyId={selectedPropertyId} />
     </>
   );
 }

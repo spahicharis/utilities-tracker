@@ -6,8 +6,38 @@ import AppFooter from "../components/AppFooter";
 import { DEFAULT_PROVIDERS } from "../lib/billingConfig";
 import { api } from "../lib/api";
 
-function AdminPage({ userName, onLogout }) {
+function AdminPage({ userName, onLogout, selectedPropertyId, onSelectProperty }) {
   const [providers, setProviders] = useState(DEFAULT_PROVIDERS);
+  const [properties, setProperties] = useState([]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadProperties = async () => {
+      try {
+        const data = await api.getProperties();
+        const nextProperties = Array.isArray(data?.properties) ? data.properties : [];
+        if (!isActive) {
+          return;
+        }
+
+        setProperties(nextProperties);
+        const stillExists = nextProperties.some((property) => property.id === selectedPropertyId);
+        if (!stillExists) {
+          onSelectProperty("");
+        }
+      } catch (_error) {
+        if (isActive) {
+          setProperties([]);
+        }
+      }
+    };
+
+    loadProperties();
+    return () => {
+      isActive = false;
+    };
+  }, [onSelectProperty, selectedPropertyId]);
 
   useEffect(() => {
     let isActive = true;
@@ -68,9 +98,17 @@ function AdminPage({ userName, onLogout }) {
     }
   };
 
+  const selectedProperty = properties.find((property) => property.id === selectedPropertyId) || null;
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-100 text-slate-900">
-      <AdminNavbar userName={userName} onLogout={onLogout} />
+      <AdminNavbar
+        userName={userName}
+        onLogout={onLogout}
+        properties={properties}
+        selectedPropertyId={selectedPropertyId}
+        onSelectProperty={onSelectProperty}
+      />
 
       <main className="flex-1">
         <section className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[240px,1fr]">
@@ -81,6 +119,8 @@ function AdminPage({ userName, onLogout }) {
               context={{
                 userName,
                 providers,
+                selectedPropertyId,
+                selectedPropertyName: selectedProperty?.name || "",
                 addProvider,
                 editProvider,
                 deleteProvider

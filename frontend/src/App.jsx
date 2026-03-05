@@ -7,11 +7,23 @@ import LoginPage from "./pages/LoginPage";
 import ProvidersPage from "./pages/admin/ProvidersPage";
 import { clearAuthToken, setAuthToken } from "./lib/api";
 import { supabase } from "./lib/supabase";
+import PropertyContextPage from "./pages/PropertyContextPage";
 
 function App() {
   const [userName, setUserName] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [selectedPropertyId, setSelectedPropertyId] = useState(() => localStorage.getItem("ut_property_id") || "");
+
+  const selectProperty = useCallback((propertyId) => {
+    const value = String(propertyId || "").trim();
+    setSelectedPropertyId(value);
+    if (value) {
+      localStorage.setItem("ut_property_id", value);
+      return;
+    }
+    localStorage.removeItem("ut_property_id");
+  }, []);
 
   const applySession = useCallback((session) => {
     const token = String(session?.access_token || "");
@@ -20,6 +32,7 @@ function App() {
       setUserName("");
       setIsAuthenticated(false);
       localStorage.removeItem("ut_user_name");
+      selectProperty("");
       return;
     }
 
@@ -29,7 +42,7 @@ function App() {
     localStorage.setItem("ut_user_name", nextName);
     setUserName(nextName);
     setIsAuthenticated(true);
-  }, []);
+  }, [selectProperty]);
 
   useEffect(() => {
     let isActive = true;
@@ -81,15 +94,39 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to={isAuthenticated ? "/admin" : "/login"} replace />} />
+      <Route path="/" element={<Navigate to={isAuthenticated ? (selectedPropertyId ? "/admin" : "/context") : "/login"} replace />} />
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/admin" replace /> : <LoginPage onLogin={login} />}
+        element={isAuthenticated ? <Navigate to={selectedPropertyId ? "/admin" : "/context"} replace /> : <LoginPage onLogin={login} />}
+      />
+      <Route
+        path="/context"
+        element={
+          <PropertyContextPage
+            isAuthenticated={isAuthenticated}
+            selectedPropertyId={selectedPropertyId}
+            onSelectProperty={selectProperty}
+            onLogout={logout}
+          />
+        }
       />
       <Route
         path="/admin/*"
         element={
-          isAuthenticated ? <AdminPage userName={userName} onLogout={logout} /> : <Navigate to="/login" replace />
+          isAuthenticated ? (
+            selectedPropertyId ? (
+              <AdminPage
+                userName={userName}
+                onLogout={logout}
+                selectedPropertyId={selectedPropertyId}
+                onSelectProperty={selectProperty}
+              />
+            ) : (
+              <Navigate to="/context" replace />
+            )
+          ) : (
+            <Navigate to="/login" replace />
+          )
         }
       >
         <Route index element={<Navigate to="dashboard" replace />} />
@@ -98,7 +135,7 @@ function App() {
         <Route path="providers" element={<ProvidersPage />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
-      <Route path="*" element={<Navigate to={isAuthenticated ? "/admin" : "/login"} replace />} />
+      <Route path="*" element={<Navigate to={isAuthenticated ? (selectedPropertyId ? "/admin" : "/context") : "/login"} replace />} />
     </Routes>
   );
 }

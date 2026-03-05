@@ -8,9 +8,15 @@ const router = Router();
 router.get("/", async (req, res) => {
   const currentYear = new Date().getFullYear();
   const selectedYear = String(req.query.year || currentYear);
+  const propertyId = String(req.query.propertyId || "").trim();
+  if (!propertyId) {
+    res.status(400).json({ error: "propertyId is required." });
+    return;
+  }
+
   let bills = [];
   try {
-    bills = await listBills();
+    bills = await listBills({ propertyId });
   } catch (error) {
     res.status(500).json({ error: "Failed to load dashboard data." });
     return;

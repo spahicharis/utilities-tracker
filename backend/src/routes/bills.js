@@ -23,9 +23,15 @@ function normalizeCurrency(input) {
 router.get("/", async (req, res) => {
   const month = typeof req.query.month === "string" ? req.query.month : "";
   const year = typeof req.query.year === "string" ? req.query.year : "";
+  const propertyId = typeof req.query.propertyId === "string" ? req.query.propertyId.trim() : "";
+
+  if (!propertyId) {
+    res.status(400).json({ error: "propertyId is required." });
+    return;
+  }
 
   try {
-    const bills = await listBills({ month, year });
+    const bills = await listBills({ propertyId, month, year });
     res.json({ bills });
   } catch (error) {
     res.status(500).json({ error: "Failed to load bills." });
@@ -33,6 +39,7 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
+  const propertyId = String(req.body?.propertyId || "").trim();
   const provider = String(req.body?.provider || "").trim();
   const billDate = String(req.body?.billDate || "").trim();
   const billingMonth = String(req.body?.billingMonth || "").trim();
@@ -40,8 +47,8 @@ router.post("/", async (req, res) => {
   const currency = normalizeCurrency(req.body?.currency);
   const amount = parseAmount(req.body?.amount);
 
-  if (!provider || !billDate || !billingMonth || amount === null) {
-    res.status(400).json({ error: "provider, amount, billDate and billingMonth are required." });
+  if (!propertyId || !provider || !billDate || !billingMonth || amount === null) {
+    res.status(400).json({ error: "propertyId, provider, amount, billDate and billingMonth are required." });
     return;
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(billDate)) {
@@ -60,6 +67,7 @@ router.post("/", async (req, res) => {
   try {
     const nextBill = await insertBill({
       id: randomUUID(),
+      propertyId,
       provider,
       amount,
       currency,
@@ -67,7 +75,7 @@ router.post("/", async (req, res) => {
       billingMonth,
       status
     });
-    const bills = await listBills();
+    const bills = await listBills({ propertyId });
     res.status(201).json({ bill: nextBill, bills });
   } catch (error) {
     res.status(500).json({ error: "Failed to create bill." });
@@ -75,14 +83,15 @@ router.post("/", async (req, res) => {
 });
 
 router.post("/import", async (req, res) => {
+  const propertyId = String(req.body?.propertyId || "").trim();
   const provider = String(req.body?.provider || "").trim();
   const year = String(req.body?.year || "").trim();
   const status = String(req.body?.status || "Pending").trim();
   const currency = normalizeCurrency(req.body?.currency);
   const csv = String(req.body?.csv || "").trim();
 
-  if (!provider || !csv || !year) {
-    res.status(400).json({ error: "provider, year and csv are required." });
+  if (!propertyId || !provider || !csv || !year) {
+    res.status(400).json({ error: "propertyId, provider, year and csv are required." });
     return;
   }
   if (!/^\d{4}$/.test(year)) {
@@ -114,6 +123,7 @@ router.post("/import", async (req, res) => {
     const month = String(index + 1).padStart(2, "0");
     return {
       id: randomUUID(),
+      propertyId,
       provider,
       amount,
       currency,
@@ -125,7 +135,7 @@ router.post("/import", async (req, res) => {
 
   try {
     const inserted = await insertBillsBulk(nextBills);
-    const bills = await listBills();
+    const bills = await listBills({ propertyId });
     res.status(201).json({ insertedCount: inserted.length, bills });
   } catch (error) {
     res.status(500).json({ error: "Failed to import bills from CSV." });
@@ -134,19 +144,20 @@ router.post("/import", async (req, res) => {
 
 router.patch("/:id/status", async (req, res) => {
   const id = String(req.params.id || "").trim();
+  const propertyId = String(req.body?.propertyId || "").trim();
   const status = String(req.body?.status || "").trim();
-  if (!id || !isValidStatus(status)) {
-    res.status(400).json({ error: `status must be one of: ${BILL_STATUS_OPTIONS.join(", ")}` });
+  if (!id || !propertyId || !isValidStatus(status)) {
+    res.status(400).json({ error: `propertyId and status are required. status must be one of: ${BILL_STATUS_OPTIONS.join(", ")}` });
     return;
   }
 
   try {
-    const bill = await updateBillStatus(id, status);
+    const bill = await updateBillStatus(id, status, propertyId);
     if (!bill) {
       res.status(404).json({ error: "Bill not found." });
       return;
     }
-    const bills = await listBills();
+    const bills = await listBills({ propertyId });
     res.json({ bill, bills });
   } catch (error) {
     res.status(500).json({ error: "Failed to update bill status." });
@@ -155,18 +166,19 @@ router.patch("/:id/status", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   const id = String(req.params.id || "").trim();
-  if (!id) {
-    res.status(400).json({ error: "Bill id is required." });
+  const propertyId = String(req.query.propertyId || "").trim();
+  if (!id || !propertyId) {
+    res.status(400).json({ error: "Bill id and propertyId are required." });
     return;
   }
 
   try {
-    const deleted = await removeBill(id);
+    const deleted = await removeBill(id, propertyId);
     if (!deleted) {
       res.status(404).json({ error: "Bill not found." });
       return;
     }
-    const bills = await listBills();
+    const bills = await listBills({ propertyId });
     res.json({ bills });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete bill." });

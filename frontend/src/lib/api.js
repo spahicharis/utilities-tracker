@@ -57,6 +57,26 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  getProperties() {
+    return request("/api/properties");
+  },
+  addProperty(name) {
+    return request("/api/properties", {
+      method: "POST",
+      body: JSON.stringify({ name })
+    });
+  },
+  updateProperty(id, name) {
+    return request(`/api/properties/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name })
+    });
+  },
+  deleteProperty(id) {
+    return request(`/api/properties/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    });
+  },
   getProviders() {
     return request("/api/providers");
   },
@@ -77,8 +97,9 @@ export const api = {
       method: "DELETE"
     });
   },
-  getBills() {
-    return request("/api/bills");
+  getBills(propertyId) {
+    const query = `?propertyId=${encodeURIComponent(propertyId)}`;
+    return request(`/api/bills${query}`);
   },
   addBill(input) {
     return request("/api/bills", {
@@ -92,19 +113,23 @@ export const api = {
       body: JSON.stringify(input)
     });
   },
-  updateBillStatus(id, status) {
+  updateBillStatus(id, status, propertyId) {
     return request(`/api/bills/${id}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status, propertyId })
     });
   },
-  deleteBill(id) {
-    return request(`/api/bills/${id}`, {
+  deleteBill(id, propertyId) {
+    return request(`/api/bills/${id}?propertyId=${encodeURIComponent(propertyId)}`, {
       method: "DELETE"
     });
   },
-  getDashboard(year) {
-    const query = year ? `?year=${encodeURIComponent(year)}` : "";
-    return request(`/api/dashboard${query}`);
+  getDashboard(year, propertyId) {
+    const query = new URLSearchParams();
+    if (year) {
+      query.set("year", year);
+    }
+    query.set("propertyId", propertyId);
+    return request(`/api/dashboard?${query.toString()}`);
   }
 };

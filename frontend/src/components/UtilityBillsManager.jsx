@@ -4,7 +4,7 @@ import {api} from "../lib/api";
 const STATUS_OPTIONS = ["Pending", "Paid", "Overdue"];
 const CURRENCY_OPTIONS = ["KM", "EUR", "USD"];
 
-function UtilityBillsManager({providers = []}) {
+function UtilityBillsManager({providers = [], selectedPropertyId}) {
     const [bills, setBills] = useState([]);
     const [selectedMonth, setSelectedMonth] = useState("");
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
@@ -67,8 +67,13 @@ function UtilityBillsManager({providers = []}) {
         let isActive = true;
 
         const loadBills = async () => {
+            if (!selectedPropertyId) {
+                setBills([]);
+                setLoading(false);
+                return;
+            }
             try {
-                const data = await api.getBills();
+                const data = await api.getBills(selectedPropertyId);
                 if (isActive && Array.isArray(data?.bills)) {
                     setBills(data.bills);
                 }
@@ -87,7 +92,7 @@ function UtilityBillsManager({providers = []}) {
         return () => {
             isActive = false;
         };
-    }, []);
+    }, [selectedPropertyId]);
 
     const filteredBills = useMemo(() => {
         let list = bills;
@@ -154,6 +159,7 @@ function UtilityBillsManager({providers = []}) {
 
         try {
             const data = await api.addBill({
+                propertyId: selectedPropertyId,
                 provider: form.provider.trim(),
                 amount,
                 currency: form.currency,
@@ -183,7 +189,7 @@ function UtilityBillsManager({providers = []}) {
     const updateStatus = async (id, status) => {
         setError("");
         try {
-            const data = await api.updateBillStatus(id, status);
+            const data = await api.updateBillStatus(id, status, selectedPropertyId);
             if (Array.isArray(data?.bills)) {
                 setBills(data.bills);
             } else if (data?.bill) {
@@ -197,7 +203,7 @@ function UtilityBillsManager({providers = []}) {
     const removeBill = async (id) => {
         setError("");
         try {
-            const data = await api.deleteBill(id);
+            const data = await api.deleteBill(id, selectedPropertyId);
             if (Array.isArray(data?.bills)) {
                 setBills(data.bills);
             } else {
@@ -223,6 +229,7 @@ function UtilityBillsManager({providers = []}) {
         setIsImporting(true);
         try {
             const data = await api.importBillsCsv({
+                propertyId: selectedPropertyId,
                 provider,
                 year,
                 currency: importForm.currency,
@@ -617,8 +624,7 @@ function UtilityBillsManager({providers = []}) {
                             </label>
 
                             <label className="block">
-                                <span
-                                    className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</span>
+                                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</span>
                                 <input
                                     type="number"
                                     min="2000"
