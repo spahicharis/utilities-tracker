@@ -8,8 +8,8 @@ RUN npm ci --omit=dev
 COPY src ./src
 
 ENV NODE_ENV=production
-ENV BACKEND_PORT=5000
-EXPOSE 5000
+ENV BACKEND_PORT=5007
+EXPOSE 5007
 
 CMD ["npm", "run", "start"]
 
