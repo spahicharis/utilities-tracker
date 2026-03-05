@@ -27,7 +27,7 @@ function LoginForm({ onLogin }) {
   };
 
   return (
-    <article className="slide-up-delayed order-1 bg-white p-7 text-slate-900 sm:p-10 lg:order-2 lg:w-1/2 lg:p-14">
+    <article className="slide-up-delayed order-2 bg-white p-7 text-slate-900 sm:p-10 lg:order-2 lg:w-1/2 lg:p-14">
       <div className="mx-auto w-full max-w-md">
         <h2 className="font-['Manrope',sans-serif] text-2xl font-bold sm:text-3xl">Sign In</h2>
         <p className="mt-2 text-sm text-slate-600">Use your work account credentials to continue.</p>
