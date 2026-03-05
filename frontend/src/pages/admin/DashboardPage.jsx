@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TRACKING_START_YEAR } from "../../lib/billingConfig";
 import { api } from "../../lib/api";
 import dashboard3dImage from "../../assets/dashboard-3d.svg";
@@ -121,6 +121,28 @@ function DashboardPage() {
     return `conic-gradient(${parts.join(", ")})`;
   })();
 
+  const unpaidBillsByMonth = useMemo(() => {
+    const grouped = data.unpaidBills.reduce((accumulator, bill) => {
+      const monthKey = String(bill?.billingMonth || "Unknown month");
+      if (!accumulator[monthKey]) {
+        accumulator[monthKey] = [];
+      }
+      accumulator[monthKey].push(bill);
+      return accumulator;
+    }, {});
+
+    return Object.entries(grouped).sort(([leftMonth], [rightMonth]) => rightMonth.localeCompare(leftMonth));
+  }, [data.unpaidBills]);
+
+  const formatBillingMonthLabel = (value) => {
+    if (!/^\d{4}-\d{2}$/.test(value)) {
+      return value;
+    }
+    const [year, month] = value.split("-");
+    const date = new Date(Number(year), Number(month) - 1, 1);
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  };
+
   return (
     <>
       <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -162,31 +184,41 @@ function DashboardPage() {
         {data.unpaidBills.length === 0 ? (
             <p className="mt-4 text-sm text-slate-500">No unpaid bills for this year.</p>
         ) : (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {data.unpaidBills.map((bill) => {
-                const isOverdue = bill.status === "Overdue";
-                const cardStyle = isOverdue
-                    ? "border-rose-200 bg-gradient-to-br from-rose-50 via-rose-100 to-white"
-                    : "border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-white";
-                const badgeStyle = isOverdue
-                    ? "bg-rose-600 text-white"
-                    : "bg-amber-500 text-amber-950";
-                return (
-                    <article key={bill.id} className={`rounded-xl border p-4 shadow-sm ${cardStyle}`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold text-slate-900">{bill.provider || "Unknown provider"}</h3>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badgeStyle}`}>
-                      {bill.status}
-                    </span>
-                      </div>
-                      <p className="mt-2 text-2xl font-bold text-slate-900">
-                        {Number(bill.amount || 0).toFixed(2)} {bill.currency || "KM"}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-700">Billing month: {bill.billingMonth || "-"}</p>
-                      <p className="mt-1 text-xs text-slate-700">Bill date: {bill.billDate || "-"}</p>
-                    </article>
-                );
-              })}
+            <div className="mt-4 space-y-5">
+              {unpaidBillsByMonth.map(([monthKey, monthBills]) => (
+                <div key={monthKey}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-slate-700">{formatBillingMonthLabel(monthKey)}</h3>
+                    <span className="text-xs text-slate-500">{monthBills.length} bills</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {monthBills.map((bill) => {
+                      const isOverdue = bill.status === "Overdue";
+                      const cardStyle = isOverdue
+                          ? "border-rose-200 bg-gradient-to-br from-rose-50 via-rose-100 to-white"
+                          : "border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-white";
+                      const badgeStyle = isOverdue
+                          ? "bg-rose-600 text-white"
+                          : "bg-amber-500 text-amber-950";
+                      return (
+                          <article key={bill.id} className={`rounded-xl border p-4 shadow-sm ${cardStyle}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-semibold text-slate-900">{bill.provider || "Unknown provider"}</h3>
+                              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badgeStyle}`}>
+                            {bill.status}
+                          </span>
+                            </div>
+                            <p className="mt-2 text-2xl font-bold text-slate-900">
+                              {Number(bill.amount || 0).toFixed(2)} {bill.currency || "KM"}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-700">Billing month: {bill.billingMonth || "-"}</p>
+                            <p className="mt-1 text-xs text-slate-700">Bill date: {bill.billDate || "-"}</p>
+                          </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
         )}
       </section>

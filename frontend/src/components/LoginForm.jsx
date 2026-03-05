@@ -74,6 +74,18 @@ function LoginForm({ onLogin }) {
             {submitting ? "Signing in..." : "Sign In"}
           </button>
         </form>
+
+        <div className="mt-6 text-center text-sm text-slate-500">
+          Don't have an account?{" "}
+          <a href="#" className="font-medium text-cyan-600 hover:text-cyan-500">
+            Sign up
+          </a>
+        </div>
+
+        <div className="mt-4 text-center text-xs text-slate-400">
+          <p>Authentication powered by Supabase. </p>
+        </div>
+
       </div>
     </article>
   );
