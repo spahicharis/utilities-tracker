@@ -117,27 +117,28 @@ Public route:
   - top providers data
   - unpaid bills list
 
-## Deploy On Linode (Docker)
+## Deploy On Linode (Docker + Host Nginx)
 
 This repo includes:
-- `docker-compose.yml` for `backend`, `frontend`, and `caddy`
+- `docker-compose.yml` for `backend` and `frontend`
 - `backend/Dockerfile` and `frontend/Dockerfile`
-- `Caddyfile` for HTTPS and reverse proxy
+- frontend static app served by container Nginx (`frontend/nginx.conf`)
 
 Traffic flow:
-- `https://util.SOME-DOMAIN.ba` -> `caddy` -> `frontend`
-- `https://util.SOME-DOMAIN.ba/api/*` -> `caddy` -> `backend`
+- `https://util.aratech.ba` -> host `nginx` -> `127.0.0.1:8080` (frontend container)
+- `https://util.aratech.ba/api/*` -> host `nginx` -> `127.0.0.1:5000` (backend container)
 
 ### 1) DNS
 
-Create an `A` record so `util.SOME-DOMAIN.ba` points to your Linode public IP.
+Create an `A` record so `util.aratech.ba` points to your Linode public IP.
 
 ### 2) Prepare VPS
 
 ```bash
 sudo apt update
-sudo apt install -y docker.io docker-compose-plugin
+sudo apt install -y docker.io docker-compose-plugin nginx certbot python3-certbot-nginx
 sudo systemctl enable --now docker
+sudo systemctl enable --now nginx
 ```
 
 ### 3) Upload and configure env
@@ -148,32 +149,75 @@ cp backend/.env.example backend/.env
 ```
 
 Set values in `.env`:
-- `DOMAIN=util.SOME-DOMAIN.ba`
+- `BACKEND_BIND_PORT=5000`
+- `FRONTEND_BIND_PORT=8080`
 - `VITE_SUPABASE_URL=...`
 - `VITE_SUPABASE_ANON_KEY=...`
+- `VITE_API_BASE_URL=` (leave empty for same-origin `/api`)
 
 Set values in `backend/.env`:
 - `POSTGRES_DB_URL=...`
 - `SUPABASE_URL=...`
 
-### 4) Build and run
+### 4) Build and run containers
 
 ```bash
 docker compose build
 docker compose up -d
 ```
 
-### 5) Verify
+### 5) Configure host Nginx reverse proxy
+
+Create `/etc/nginx/sites-available/util.aratech.ba` with:
+
+```nginx
+server {
+  listen 80;
+  server_name util.aratech.ba;
+
+  location /api/ {
+    proxy_pass http://127.0.0.1:5000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+}
+```
+
+Enable and reload:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/util.aratech.ba /etc/nginx/sites-enabled/util.aratech.ba
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 6) Enable HTTPS (Let's Encrypt)
+
+```bash
+sudo certbot --nginx -d util.aratech.ba
+```
+
+### 7) Verify
 
 ```bash
 docker compose ps
-curl -I https://util.SOME-DOMAIN.ba
-curl -s https://util.SOME-DOMAIN.ba/api/health
+curl -I https://util.aratech.ba
+curl -s https://util.aratech.ba/api/health
 ```
 
-If `curl` shows TLS or connection issues, wait 1-2 minutes for Let's Encrypt issuance, then retry.
-
-### 6) Updates
+### 8) Updates
 
 ```bash
 git pull
