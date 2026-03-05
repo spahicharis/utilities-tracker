@@ -1,13 +1,44 @@
+const TOKEN_STORAGE_KEY = "ut_token";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
+
+function buildUrl(path) {
+  if (!API_BASE_URL) {
+    return path;
+  }
+  return `${API_BASE_URL.replace(/\/$/, "")}${path}`;
+}
+
+export function getStoredToken() {
+  return localStorage.getItem(TOKEN_STORAGE_KEY) || "";
+}
+
+export function setAuthToken(token) {
+  if (token) {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    return;
+  }
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
+export function clearAuthToken() {
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
 async function request(path, options = {}) {
-  const response = await fetch(path, {
+  const { headers = {}, ...fetchOptions } = options;
+  const token = getStoredToken();
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const response = await fetch(buildUrl(path), {
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers || {})
+      ...authHeaders,
+      ...headers
     },
-    ...options
+    ...fetchOptions
   });
 
-  let payload = null;
+  let payload;
   try {
     payload = await response.json();
   } catch (_error) {
@@ -15,6 +46,10 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthToken();
+      window.dispatchEvent(new Event("ut:unauthorized"));
+    }
     throw new Error(payload?.error || "Request failed.");
   }
 

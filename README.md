@@ -5,6 +5,7 @@ Utility bill tracking app with:
 - `frontend`: React (Vite + Tailwind CSS)
 
 ## ✨ Highlights
+- 🔐 Supabase email/password sign-in with backend Bearer token verification
 - 📌 Provider management with `name`, `address`, `phone`, `logo`
 - 🧾 Bills with `amount`, `currency` (default `KM`), status, dates
 - 📥 Bulk import bills via newline-delimited CSV text
@@ -35,6 +36,9 @@ Important vars:
 - `POSTGRES_DB_URL`: Supabase Postgres connection string
 - `BACKEND_PORT`: backend port (default `5005`)
 - `FRONTEND_PORT`: frontend port (default `5173`)
+- `SUPABASE_URL`: Supabase project URL used by backend token verifier
+- `VITE_SUPABASE_URL`: Supabase project URL used by frontend auth client
+- `VITE_SUPABASE_ANON_KEY`: Supabase anon key used by frontend auth client
 - `VITE_API_BASE_URL`: optional frontend override (empty = Vite proxy to `/api`)
 
 ### 2) Install dependencies
@@ -72,6 +76,14 @@ Backend uses Supabase Postgres via `POSTGRES_DB_URL`.
 On startup, the API auto-creates/updates required tables/columns (`providers`, `bills`).
 
 ## 🔌 Backend API
+
+Most API routes require `Authorization: Bearer <supabase_access_token>`.
+Public route:
+- `GET /api/health`
+
+### Auth
+- Frontend performs auth directly with Supabase (`signInWithPassword`).
+- Backend validates Supabase access tokens via the project's JWKS endpoint.
 
 ### Providers
 - `GET /api/providers`

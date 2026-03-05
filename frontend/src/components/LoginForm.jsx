@@ -4,15 +4,26 @@ function LoginForm({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const isDisabled = !email.trim() || !password.trim();
+  const isDisabled = submitting || !email.trim() || !password.trim();
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (isDisabled) {
       return;
     }
-    onLogin(email);
+
+    setSubmitting(true);
+    setError("");
+    try {
+      await onLogin({ email: email.trim(), password });
+    } catch (loginError) {
+      setError(loginError?.message || "Sign in failed.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -53,25 +64,16 @@ function LoginForm({ onLogin }) {
             </div>
           </label>
 
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <label className="flex cursor-pointer items-center gap-2 text-slate-600">
-              <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-cyan-500 focus:ring-cyan-400" />
-              Remember me
-            </label>
-            <a href="#" className="font-medium text-cyan-700 hover:text-cyan-600">
-              Forgot password?
-            </a>
-          </div>
+          {error ? <p className="text-sm text-rose-700">{error}</p> : null}
 
           <button
             type="submit"
             disabled={isDisabled}
             className="w-full rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
-            Sign In
+            {submitting ? "Signing in..." : "Sign In"}
           </button>
         </form>
-
       </div>
     </article>
   );
