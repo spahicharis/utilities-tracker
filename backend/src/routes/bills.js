@@ -2,7 +2,14 @@ import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { BILL_STATUS_OPTIONS } from "../config/constants.js";
 import { isValidStatus, parseAmount } from "../lib/bills.js";
-import { insertBill, insertBillsBulk, listBills, removeBill, updateBillStatus } from "../lib/db.js";
+import {
+  insertBill,
+  insertBillsBulk,
+  isPropertyOwnedByUser,
+  listBills,
+  removeBill,
+  updateBillStatus
+} from "../lib/db.js";
 
 const router = Router();
 
@@ -20,7 +27,17 @@ function normalizeCurrency(input) {
   return value || "KM";
 }
 
+async function ensurePropertyAccess(res, userId, propertyId) {
+  const isOwned = await isPropertyOwnedByUser(propertyId, userId);
+  if (!isOwned) {
+    res.status(403).json({ error: "You do not have access to this property." });
+    return false;
+  }
+  return true;
+}
+
 router.get("/", async (req, res) => {
+  const userId = String(req.authUser?.id || "").trim();
   const month = typeof req.query.month === "string" ? req.query.month : "";
   const year = typeof req.query.year === "string" ? req.query.year : "";
   const propertyId = typeof req.query.propertyId === "string" ? req.query.propertyId.trim() : "";
@@ -31,7 +48,10 @@ router.get("/", async (req, res) => {
   }
 
   try {
-    const bills = await listBills({ propertyId, month, year });
+    if (!(await ensurePropertyAccess(res, userId, propertyId))) {
+      return;
+    }
+    const bills = await listBills({ userId, propertyId, month, year });
     res.json({ bills });
   } catch (error) {
     res.status(500).json({ error: "Failed to load bills." });
@@ -39,6 +59,7 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
+  const userId = String(req.authUser?.id || "").trim();
   const propertyId = String(req.body?.propertyId || "").trim();
   const provider = String(req.body?.provider || "").trim();
   const billDate = String(req.body?.billDate || "").trim();
@@ -65,6 +86,9 @@ router.post("/", async (req, res) => {
   }
 
   try {
+    if (!(await ensurePropertyAccess(res, userId, propertyId))) {
+      return;
+    }
     const nextBill = await insertBill({
       id: randomUUID(),
       propertyId,
@@ -75,7 +99,7 @@ router.post("/", async (req, res) => {
       billingMonth,
       status
     });
-    const bills = await listBills({ propertyId });
+    const bills = await listBills({ userId, propertyId });
     res.status(201).json({ bill: nextBill, bills });
   } catch (error) {
     res.status(500).json({ error: "Failed to create bill." });
@@ -83,6 +107,7 @@ router.post("/", async (req, res) => {
 });
 
 router.post("/import", async (req, res) => {
+  const userId = String(req.authUser?.id || "").trim();
   const propertyId = String(req.body?.propertyId || "").trim();
   const provider = String(req.body?.provider || "").trim();
   const year = String(req.body?.year || "").trim();
@@ -134,8 +159,11 @@ router.post("/import", async (req, res) => {
   });
 
   try {
+    if (!(await ensurePropertyAccess(res, userId, propertyId))) {
+      return;
+    }
     const inserted = await insertBillsBulk(nextBills);
-    const bills = await listBills({ propertyId });
+    const bills = await listBills({ userId, propertyId });
     res.status(201).json({ insertedCount: inserted.length, bills });
   } catch (error) {
     res.status(500).json({ error: "Failed to import bills from CSV." });
@@ -143,6 +171,7 @@ router.post("/import", async (req, res) => {
 });
 
 router.patch("/:id/status", async (req, res) => {
+  const userId = String(req.authUser?.id || "").trim();
   const id = String(req.params.id || "").trim();
   const propertyId = String(req.body?.propertyId || "").trim();
   const status = String(req.body?.status || "").trim();
@@ -152,12 +181,15 @@ router.patch("/:id/status", async (req, res) => {
   }
 
   try {
-    const bill = await updateBillStatus(id, status, propertyId);
+    if (!(await ensurePropertyAccess(res, userId, propertyId))) {
+      return;
+    }
+    const bill = await updateBillStatus(id, status, propertyId, userId);
     if (!bill) {
       res.status(404).json({ error: "Bill not found." });
       return;
     }
-    const bills = await listBills({ propertyId });
+    const bills = await listBills({ userId, propertyId });
     res.json({ bill, bills });
   } catch (error) {
     res.status(500).json({ error: "Failed to update bill status." });
@@ -165,6 +197,7 @@ router.patch("/:id/status", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
+  const userId = String(req.authUser?.id || "").trim();
   const id = String(req.params.id || "").trim();
   const propertyId = String(req.query.propertyId || "").trim();
   if (!id || !propertyId) {
@@ -173,12 +206,15 @@ router.delete("/:id", async (req, res) => {
   }
 
   try {
-    const deleted = await removeBill(id, propertyId);
+    if (!(await ensurePropertyAccess(res, userId, propertyId))) {
+      return;
+    }
+    const deleted = await removeBill(id, propertyId, userId);
     if (!deleted) {
       res.status(404).json({ error: "Bill not found." });
       return;
     }
-    const bills = await listBills({ propertyId });
+    const bills = await listBills({ userId, propertyId });
     res.json({ bills });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete bill." });

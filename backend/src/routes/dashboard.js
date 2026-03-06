@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { TRACKING_START_YEAR } from "../config/constants.js";
 import { getYearFromBill } from "../lib/bills.js";
-import { listBills } from "../lib/db.js";
+import { isPropertyOwnedByUser, listBills } from "../lib/db.js";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
+  const userId = String(req.authUser?.id || "").trim();
   const currentYear = new Date().getFullYear();
   const selectedYear = String(req.query.year || currentYear);
   const propertyId = String(req.query.propertyId || "").trim();
@@ -16,7 +17,12 @@ router.get("/", async (req, res) => {
 
   let bills = [];
   try {
-    bills = await listBills({ propertyId });
+    const isOwned = await isPropertyOwnedByUser(propertyId, userId);
+    if (!isOwned) {
+      res.status(403).json({ error: "You do not have access to this property." });
+      return;
+    }
+    bills = await listBills({ userId, propertyId });
   } catch (error) {
     res.status(500).json({ error: "Failed to load dashboard data." });
     return;

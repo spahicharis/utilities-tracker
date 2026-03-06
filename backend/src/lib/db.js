@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { DEFAULT_PROVIDERS } from "../config/constants.js";
 
+const LEGACY_PROPERTY_OWNER_ID = "legacy-unassigned";
+
 let pool;
 
 function getPool() {
@@ -53,13 +55,27 @@ export async function initializeDatabase() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS properties (
         id UUID PRIMARY KEY,
-        name TEXT NOT NULL UNIQUE
+        name TEXT NOT NULL,
+        user_id TEXT
       );
     `);
 
+    await client.query("ALTER TABLE properties ADD COLUMN IF NOT EXISTS user_id TEXT");
+    await client.query("UPDATE properties SET user_id = $1 WHERE user_id IS NULL OR TRIM(user_id) = ''", [LEGACY_PROPERTY_OWNER_ID]);
+    await client.query("ALTER TABLE properties ALTER COLUMN user_id SET NOT NULL");
+    await client.query("ALTER TABLE properties DROP CONSTRAINT IF EXISTS properties_name_key");
+    await client.query("CREATE INDEX IF NOT EXISTS idx_properties_user_id ON properties(user_id)");
+    await client.query(
+      "CREATE UNIQUE INDEX IF NOT EXISTS properties_user_name_unique_idx ON properties(user_id, LOWER(name))"
+    );
+
     const existingProperties = await client.query("SELECT COUNT(*)::INT AS count FROM properties");
     if (existingProperties.rows[0].count === 0) {
-      await client.query("INSERT INTO properties(id, name) VALUES ($1, $2)", [randomUUID(), "Primary Home"]);
+      await client.query("INSERT INTO properties(id, name, user_id) VALUES ($1, $2, $3)", [
+        randomUUID(),
+        "Primary Home",
+        LEGACY_PROPERTY_OWNER_ID
+      ]);
     }
 
     await client.query(`
@@ -129,53 +145,67 @@ export async function initializeDatabase() {
   }
 }
 
-export async function listProperties() {
-  const result = await getPool().query("SELECT id, name FROM properties ORDER BY LOWER(name) ASC");
+export async function listProperties(userId) {
+  const result = await getPool().query(
+    "SELECT id, name FROM properties WHERE user_id = $1 ORDER BY LOWER(name) ASC",
+    [userId]
+  );
   return result.rows.map(mapPropertyRow);
 }
 
-export async function addProperty(name) {
+export async function addProperty(name, userId) {
   const result = await getPool().query(
-    `INSERT INTO properties(id, name)
-     SELECT $1, $2
+    `INSERT INTO properties(id, name, user_id)
+     SELECT $1, $2, $3
      WHERE NOT EXISTS (
-       SELECT 1 FROM properties WHERE LOWER(name) = LOWER($2)
+       SELECT 1 FROM properties WHERE user_id = $3 AND LOWER(name) = LOWER($2)
      )
      RETURNING id, name`,
-    [randomUUID(), name]
+    [randomUUID(), name, userId]
   );
   return result.rows[0] ? mapPropertyRow(result.rows[0]) : null;
 }
 
-export async function updateProperty(id, name) {
-  const existing = await getPool().query("SELECT id FROM properties WHERE id = $1", [id]);
+export async function updateProperty(id, name, userId) {
+  const existing = await getPool().query("SELECT id FROM properties WHERE id = $1 AND user_id = $2", [id, userId]);
   if (!existing.rowCount) {
     return { status: "not_found", property: null };
   }
 
   const conflict = await getPool().query(
-    `SELECT 1 FROM properties WHERE LOWER(name) = LOWER($1) AND id <> $2 LIMIT 1`,
-    [name, id]
+    `SELECT 1 FROM properties WHERE user_id = $1 AND LOWER(name) = LOWER($2) AND id <> $3 LIMIT 1`,
+    [userId, name, id]
   );
   if (conflict.rowCount) {
     return { status: "conflict", property: null };
   }
 
-  const updated = await getPool().query("UPDATE properties SET name = $2 WHERE id = $1 RETURNING id, name", [id, name]);
+  const updated = await getPool().query(
+    "UPDATE properties SET name = $3 WHERE id = $1 AND user_id = $2 RETURNING id, name",
+    [id, userId, name]
+  );
   return { status: "ok", property: mapPropertyRow(updated.rows[0]) };
 }
 
-export async function removeProperty(id) {
-  const inUse = await getPool().query("SELECT 1 FROM bills WHERE property_id = $1 LIMIT 1", [id]);
+export async function removeProperty(id, userId) {
+  const inUse = await getPool().query(
+    "SELECT 1 FROM bills b JOIN properties p ON p.id = b.property_id WHERE p.id = $1 AND p.user_id = $2 LIMIT 1",
+    [id, userId]
+  );
   if (inUse.rowCount) {
     return { status: "has_bills" };
   }
 
-  const result = await getPool().query("DELETE FROM properties WHERE id = $1 RETURNING id", [id]);
+  const result = await getPool().query("DELETE FROM properties WHERE id = $1 AND user_id = $2 RETURNING id", [id, userId]);
   if (!result.rowCount) {
     return { status: "not_found" };
   }
   return { status: "ok" };
+}
+
+export async function isPropertyOwnedByUser(propertyId, userId) {
+  const result = await getPool().query("SELECT 1 FROM properties WHERE id = $1 AND user_id = $2 LIMIT 1", [propertyId, userId]);
+  return Boolean(result.rowCount);
 }
 
 export async function listProviders() {
@@ -257,6 +287,9 @@ export async function listBills(filters = {}) {
   const values = [];
   const where = [];
 
+  values.push(filters.userId);
+  where.push(`EXISTS (SELECT 1 FROM properties p WHERE p.id = bills.property_id AND p.user_id = $${values.length})`);
+
   if (filters.propertyId) {
     values.push(filters.propertyId);
     where.push(`property_id = $${values.length}`);
@@ -326,20 +359,34 @@ export async function insertBillsBulk(bills) {
   }
 }
 
-export async function updateBillStatus(id, status, propertyId) {
+export async function updateBillStatus(id, status, propertyId, userId) {
   const result = await getPool().query(
     `
-      UPDATE bills
+      UPDATE bills b
       SET status = $2
-      WHERE id = $1 AND property_id = $3
-      RETURNING id, property_id, provider, amount, currency, bill_date, billing_month, status
+      FROM properties p
+      WHERE b.id = $1
+        AND b.property_id = $3
+        AND p.id = b.property_id
+        AND p.user_id = $4
+      RETURNING b.id, b.property_id, b.provider, b.amount, b.currency, b.bill_date, b.billing_month, b.status
     `,
-    [id, status, propertyId]
+    [id, status, propertyId, userId]
   );
   return result.rows[0] ? mapBillRow(result.rows[0]) : null;
 }
 
-export async function removeBill(id, propertyId) {
-  const result = await getPool().query("DELETE FROM bills WHERE id = $1 AND property_id = $2", [id, propertyId]);
+export async function removeBill(id, propertyId, userId) {
+  const result = await getPool().query(
+    `
+      DELETE FROM bills b
+      USING properties p
+      WHERE b.id = $1
+        AND b.property_id = $2
+        AND p.id = b.property_id
+        AND p.user_id = $3
+    `,
+    [id, propertyId, userId]
+  );
   return Boolean(result.rowCount);
 }

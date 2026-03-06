@@ -3,9 +3,10 @@ import { addProperty, listProperties, removeProperty, updateProperty } from "../
 
 const router = Router();
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
+  const userId = String(req.authUser?.id || "").trim();
   try {
-    const properties = await listProperties();
+    const properties = await listProperties(userId);
     res.json({ properties });
   } catch (_error) {
     res.status(500).json({ error: "Failed to load properties." });
@@ -13,6 +14,7 @@ router.get("/", async (_req, res) => {
 });
 
 router.post("/", async (req, res) => {
+  const userId = String(req.authUser?.id || "").trim();
   const name = String(req.body?.name || "").trim();
   if (!name) {
     res.status(400).json({ error: "Property name is required." });
@@ -20,12 +22,12 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    const created = await addProperty(name);
+    const created = await addProperty(name, userId);
     if (!created) {
       res.status(409).json({ error: "Property already exists." });
       return;
     }
-    const properties = await listProperties();
+    const properties = await listProperties(userId);
     res.status(201).json({ property: created, properties });
   } catch (_error) {
     res.status(500).json({ error: "Failed to add property." });
@@ -33,6 +35,7 @@ router.post("/", async (req, res) => {
 });
 
 router.patch("/:id", async (req, res) => {
+  const userId = String(req.authUser?.id || "").trim();
   const id = String(req.params.id || "").trim();
   const name = String(req.body?.name || "").trim();
   if (!id || !name) {
@@ -41,7 +44,7 @@ router.patch("/:id", async (req, res) => {
   }
 
   try {
-    const updated = await updateProperty(id, name);
+    const updated = await updateProperty(id, name, userId);
     if (updated.status === "not_found") {
       res.status(404).json({ error: "Property not found." });
       return;
@@ -50,7 +53,7 @@ router.patch("/:id", async (req, res) => {
       res.status(409).json({ error: "Property already exists." });
       return;
     }
-    const properties = await listProperties();
+    const properties = await listProperties(userId);
     res.json({ property: updated.property, properties });
   } catch (_error) {
     res.status(500).json({ error: "Failed to update property." });
@@ -58,6 +61,7 @@ router.patch("/:id", async (req, res) => {
 });
 
 router.delete("/:id", async (req, res) => {
+  const userId = String(req.authUser?.id || "").trim();
   const id = String(req.params.id || "").trim();
   if (!id) {
     res.status(400).json({ error: "Property id is required." });
@@ -65,7 +69,7 @@ router.delete("/:id", async (req, res) => {
   }
 
   try {
-    const deleted = await removeProperty(id);
+    const deleted = await removeProperty(id, userId);
     if (deleted.status === "not_found") {
       res.status(404).json({ error: "Property not found." });
       return;
@@ -74,7 +78,7 @@ router.delete("/:id", async (req, res) => {
       res.status(409).json({ error: "Property has bills and cannot be deleted." });
       return;
     }
-    const properties = await listProperties();
+    const properties = await listProperties(userId);
     res.json({ properties });
   } catch (_error) {
     res.status(500).json({ error: "Failed to delete property." });
@@ -82,4 +86,3 @@ router.delete("/:id", async (req, res) => {
 });
 
 export default router;
-

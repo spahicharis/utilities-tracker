@@ -9,40 +9,70 @@ import { clearAuthToken, setAuthToken } from "./lib/api";
 import { supabase } from "./lib/supabase";
 import PropertyContextPage from "./pages/PropertyContextPage";
 
+function getPropertyStorageKey(userId) {
+  return `ut_property_id:${String(userId || "").trim()}`;
+}
+
+function getStoredPropertyId(userId) {
+  const key = getPropertyStorageKey(userId);
+  return localStorage.getItem(key) || "";
+}
+
+function setStoredPropertyId(userId, propertyId) {
+  const key = getPropertyStorageKey(userId);
+  if (!propertyId) {
+    localStorage.removeItem(key);
+    return;
+  }
+  localStorage.setItem(key, propertyId);
+}
+
 function App() {
+  const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [selectedPropertyId, setSelectedPropertyId] = useState(() => localStorage.getItem("ut_property_id") || "");
+  const [selectedPropertyId, setSelectedPropertyId] = useState("");
 
-  const selectProperty = useCallback((propertyId) => {
-    const value = String(propertyId || "").trim();
-    setSelectedPropertyId(value);
-    if (value) {
-      localStorage.setItem("ut_property_id", value);
-      return;
-    }
-    localStorage.removeItem("ut_property_id");
-  }, []);
+  const selectProperty = useCallback(
+    (propertyId) => {
+      const value = String(propertyId || "").trim();
+      setSelectedPropertyId(value);
+      if (!userId) {
+        return;
+      }
+      setStoredPropertyId(userId, value);
+    },
+    [userId]
+  );
 
-  const applySession = useCallback((session) => {
-    const token = String(session?.access_token || "");
-    if (!token) {
-      clearAuthToken();
-      setUserName("");
-      setIsAuthenticated(false);
-      localStorage.removeItem("ut_user_name");
-      selectProperty("");
-      return;
-    }
+  const applySession = useCallback(
+    (session) => {
+      const token = String(session?.access_token || "");
+      if (!token) {
+        clearAuthToken();
+        setUserId("");
+        setUserName("");
+        setIsAuthenticated(false);
+        setIsAuthReady(true);
+        localStorage.removeItem("ut_user_name");
+        setSelectedPropertyId("");
+        return;
+      }
 
-    setAuthToken(token);
-    const email = String(session?.user?.email || "").trim();
-    const nextName = email ? email.split("@")[0] : "Admin";
-    localStorage.setItem("ut_user_name", nextName);
-    setUserName(nextName);
-    setIsAuthenticated(true);
-  }, [selectProperty]);
+      setAuthToken(token);
+      const nextUserId = String(session?.user?.id || "").trim();
+      const email = String(session?.user?.email || "").trim();
+      const nextName = email ? email.split("@")[0] : "Admin";
+      localStorage.setItem("ut_user_name", nextName);
+      setUserId(nextUserId);
+      setUserName(nextName);
+      setSelectedPropertyId(getStoredPropertyId(nextUserId));
+      setIsAuthenticated(true);
+      setIsAuthReady(true);
+    },
+    []
+  );
 
   useEffect(() => {
     let isActive = true;
