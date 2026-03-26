@@ -8,3 +8,5 @@ export const DEFAULT_PROVIDERS = [
   { name: "Gas Utility", address: "", logo: "", phone: "" }
 ];
 export const BILL_STATUS_OPTIONS = ["Pending", "Paid", "Overdue"];
+export const SUBSCRIPTION_STATUS_OPTIONS = ["Active", "Paused", "Canceled"];
+export const SUBSCRIPTION_BILLING_CYCLES = ["Monthly", "Quarterly", "Yearly"];

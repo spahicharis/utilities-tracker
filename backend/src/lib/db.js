@@ -47,6 +47,19 @@ function mapPropertyRow(row) {
   };
 }
 
+function mapSubscriptionRow(row) {
+  return {
+    id: row.id,
+    propertyId: row.property_id,
+    name: row.name,
+    amount: Number(row.amount),
+    currency: row.currency ?? "KM",
+    billingCycle: row.billing_cycle,
+    nextBillingDate: row.next_billing_date,
+    status: row.status
+  };
+}
+
 export async function initializeDatabase() {
   const client = await getPool().connect();
   try {
@@ -106,13 +119,34 @@ export async function initializeDatabase() {
     await client.query("ALTER TABLE bills ADD COLUMN IF NOT EXISTS property_id UUID");
     await client.query("ALTER TABLE bills ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'KM'");
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id UUID PRIMARY KEY,
+        property_id UUID,
+        name TEXT NOT NULL,
+        amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+        currency TEXT NOT NULL DEFAULT 'KM',
+        billing_cycle TEXT NOT NULL CHECK (billing_cycle IN ('Monthly', 'Quarterly', 'Yearly')),
+        next_billing_date DATE NOT NULL,
+        status TEXT NOT NULL CHECK (status IN ('Active', 'Paused', 'Canceled'))
+      );
+    `);
+
+    await client.query("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS property_id UUID");
+    await client.query("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'KM'");
+    await client.query(
+      "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'Monthly'"
+    );
+
     const defaultPropertyResult = await client.query("SELECT id FROM properties ORDER BY name ASC LIMIT 1");
     const defaultPropertyId = defaultPropertyResult.rows[0]?.id;
     if (defaultPropertyId) {
       await client.query("UPDATE bills SET property_id = $1 WHERE property_id IS NULL", [defaultPropertyId]);
+      await client.query("UPDATE subscriptions SET property_id = $1 WHERE property_id IS NULL", [defaultPropertyId]);
     }
 
     await client.query("ALTER TABLE bills ALTER COLUMN property_id SET NOT NULL");
+    await client.query("ALTER TABLE subscriptions ALTER COLUMN property_id SET NOT NULL");
 
     await client.query(`
       DO $$
@@ -122,6 +156,19 @@ export async function initializeDatabase() {
         ) THEN
           ALTER TABLE bills
             ADD CONSTRAINT bills_property_id_fkey
+            FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE RESTRICT;
+        END IF;
+      END $$;
+    `);
+
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'subscriptions_property_id_fkey'
+        ) THEN
+          ALTER TABLE subscriptions
+            ADD CONSTRAINT subscriptions_property_id_fkey
             FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE RESTRICT;
         END IF;
       END $$;
@@ -280,6 +327,102 @@ export async function updateProvider(originalName, provider) {
 
 export async function removeProvider(name) {
   const result = await getPool().query("DELETE FROM providers WHERE name = $1 RETURNING name", [name]);
+  return Boolean(result.rowCount);
+}
+
+export async function listSubscriptions(filters = {}) {
+  const values = [];
+  const where = [];
+
+  values.push(filters.userId);
+  where.push(
+    `EXISTS (SELECT 1 FROM properties p WHERE p.id = subscriptions.property_id AND p.user_id = $${values.length})`
+  );
+
+  if (filters.propertyId) {
+    values.push(filters.propertyId);
+    where.push(`property_id = $${values.length}`);
+  }
+
+  const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+  const result = await getPool().query(
+    `
+      SELECT id, property_id, name, amount, currency, billing_cycle, next_billing_date, status
+      FROM subscriptions
+      ${whereClause}
+      ORDER BY LOWER(name) ASC, next_billing_date ASC
+    `,
+    values
+  );
+
+  return result.rows.map(mapSubscriptionRow);
+}
+
+export async function insertSubscription(subscription) {
+  const result = await getPool().query(
+    `
+      INSERT INTO subscriptions(id, property_id, name, amount, currency, billing_cycle, next_billing_date, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, property_id, name, amount, currency, billing_cycle, next_billing_date, status
+    `,
+    [
+      subscription.id,
+      subscription.propertyId,
+      subscription.name,
+      subscription.amount,
+      subscription.currency,
+      subscription.billingCycle,
+      subscription.nextBillingDate,
+      subscription.status
+    ]
+  );
+  return mapSubscriptionRow(result.rows[0]);
+}
+
+export async function updateSubscription(id, subscription, userId) {
+  const result = await getPool().query(
+    `
+      UPDATE subscriptions s
+      SET name = $3,
+          amount = $4,
+          currency = $5,
+          billing_cycle = $6,
+          next_billing_date = $7,
+          status = $8
+      FROM properties p
+      WHERE s.id = $1
+        AND s.property_id = $2
+        AND p.id = s.property_id
+        AND p.user_id = $9
+      RETURNING s.id, s.property_id, s.name, s.amount, s.currency, s.billing_cycle, s.next_billing_date, s.status
+    `,
+    [
+      id,
+      subscription.propertyId,
+      subscription.name,
+      subscription.amount,
+      subscription.currency,
+      subscription.billingCycle,
+      subscription.nextBillingDate,
+      subscription.status,
+      userId
+    ]
+  );
+  return result.rows[0] ? mapSubscriptionRow(result.rows[0]) : null;
+}
+
+export async function removeSubscription(id, propertyId, userId) {
+  const result = await getPool().query(
+    `
+      DELETE FROM subscriptions s
+      USING properties p
+      WHERE s.id = $1
+        AND s.property_id = $2
+        AND p.id = s.property_id
+        AND p.user_id = $3
+    `,
+    [id, propertyId, userId]
+  );
   return Boolean(result.rowCount);
 }
 

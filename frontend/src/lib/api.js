@@ -101,10 +101,31 @@ export const api = {
     const query = `?propertyId=${encodeURIComponent(propertyId)}`;
     return request(`/api/bills${query}`);
   },
+  getSubscriptions(propertyId) {
+    const query = `?propertyId=${encodeURIComponent(propertyId)}`;
+    return request(`/api/subscriptions${query}`);
+  },
   addBill(input) {
     return request("/api/bills", {
       method: "POST",
       body: JSON.stringify(input)
+    });
+  },
+  addSubscription(input) {
+    return request("/api/subscriptions", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+  updateSubscription(id, input) {
+    return request(`/api/subscriptions/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(input)
+    });
+  },
+  deleteSubscription(id, propertyId) {
+    return request(`/api/subscriptions/${encodeURIComponent(id)}?propertyId=${encodeURIComponent(propertyId)}`, {
+      method: "DELETE"
     });
   },
   importBillsCsv(input) {

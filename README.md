@@ -8,6 +8,7 @@ Utility bill tracking app with:
 - 🔐 Supabase email/password sign-in with backend Bearer token verification
 - 📌 Provider management with `name`, `address`, `phone`, `logo`
 - 🧾 Bills with `amount`, `currency` (default `KM`), status, dates
+- 🔁 Subscriptions with billing cycle, next billing date, and status
 - 📥 Bulk import bills via newline-delimited CSV text
 - 📊 Dashboard with line and pie charts
 - 🚨 Unpaid bills section (pending + overdue cards)
@@ -107,6 +108,14 @@ Public route:
 - `PATCH /api/bills/:id/status`
   - body: `{ "status": "Paid" }`
 - `DELETE /api/bills/:id`
+
+### Subscriptions
+- `GET /api/subscriptions?propertyId=<uuid>`
+- `POST /api/subscriptions`
+  - body: `{ "propertyId": "<uuid>", "name": "Netflix", "amount": 19.99, "currency": "KM", "billingCycle": "Monthly", "nextBillingDate": "2026-04-01", "status": "Active" }`
+- `PATCH /api/subscriptions/:id`
+  - body: `{ "propertyId": "<uuid>", "name": "YouTube Premium", "amount": 12.99, "currency": "KM", "billingCycle": "Monthly", "nextBillingDate": "2026-04-15", "status": "Paused" }`
+- `DELETE /api/subscriptions/:id?propertyId=<uuid>`
 
 ### Dashboard
 - `GET /api/dashboard?year=2026`
