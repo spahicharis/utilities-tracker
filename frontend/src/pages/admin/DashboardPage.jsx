@@ -21,7 +21,11 @@ function DashboardPage() {
     yearlyTotals: [],
     statusSplit: { paid: 0, pending: 0, overdue: 0 },
     topProviders: [],
-    unpaidBills: []
+    unpaidBills: [],
+    vehicleRegistrations: {
+      summary: { total: 0, paid: 0, dueSoon: 0, overdue: 0 },
+      upcoming: []
+    }
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -44,7 +48,11 @@ function DashboardPage() {
           yearlyTotals: Array.isArray(payload?.yearlyTotals) ? payload.yearlyTotals : [],
           statusSplit: payload?.statusSplit ?? { paid: 0, pending: 0, overdue: 0 },
           topProviders: Array.isArray(payload?.topProviders) ? payload.topProviders : [],
-          unpaidBills: Array.isArray(payload?.unpaidBills) ? payload.unpaidBills : []
+          unpaidBills: Array.isArray(payload?.unpaidBills) ? payload.unpaidBills : [],
+          vehicleRegistrations: {
+            summary: payload?.vehicleRegistrations?.summary ?? { total: 0, paid: 0, dueSoon: 0, overdue: 0 },
+            upcoming: Array.isArray(payload?.vehicleRegistrations?.upcoming) ? payload.vehicleRegistrations.upcoming : []
+          }
         });
       } catch (_error) {
         if (isActive) {
@@ -245,6 +253,74 @@ function DashboardPage() {
       </section>
       {loading ? <p className="text-sm text-slate-500">Loading dashboard...</p> : null}
       {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+
+      <section className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-['Manrope',sans-serif] text-xl font-bold">Vehicle Registrations</h2>
+            <p className="mt-1 text-sm text-slate-600">Upcoming renewals and overdue registrations across your tracked vehicles.</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+            {data.vehicleRegistrations.summary.total} vehicles
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <MetricCard
+            label="Due Soon"
+            value={String(data.vehicleRegistrations.summary.dueSoon || 0)}
+            hint="Renewals that need attention"
+          />
+          <MetricCard
+            label="Overdue"
+            value={String(data.vehicleRegistrations.summary.overdue || 0)}
+            hint="Past due registrations"
+          />
+          <MetricCard
+            label="Paid"
+            value={String(data.vehicleRegistrations.summary.paid || 0)}
+            hint="Renewals completed"
+          />
+        </div>
+
+        {data.vehicleRegistrations.upcoming.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">No due-soon or overdue vehicle registrations right now.</p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {data.vehicleRegistrations.upcoming.map((registration) => {
+              const isOverdue = registration.status === "Overdue";
+              return (
+                <article
+                  key={registration.id}
+                  className={`rounded-xl border p-4 shadow-sm ${
+                    isOverdue
+                      ? "border-rose-200 bg-gradient-to-br from-rose-50 via-rose-100 to-white"
+                      : "border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-white"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">{registration.vehicleName}</h3>
+                      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">{registration.licencePlate}</p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        isOverdue ? "bg-rose-600 text-white" : "bg-amber-500 text-amber-950"
+                      }`}
+                    >
+                      {registration.status}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-2xl font-bold text-slate-900">
+                    {Number(registration.amount || 0).toFixed(2)} {registration.currency || "KM"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-700">Due date: {registration.dueDate || "-"}</p>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-['Manrope',sans-serif] text-xl font-bold">Yearly Spend Trend</h2>

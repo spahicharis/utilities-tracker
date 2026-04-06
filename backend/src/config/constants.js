@@ -10,3 +10,4 @@ export const DEFAULT_PROVIDERS = [
 export const BILL_STATUS_OPTIONS = ["Pending", "Paid", "Overdue"];
 export const SUBSCRIPTION_STATUS_OPTIONS = ["Active", "Paused", "Canceled"];
 export const SUBSCRIPTION_BILLING_CYCLES = ["Monthly", "Quarterly", "Yearly"];
+export const VEHICLE_REGISTRATION_STATUS_OPTIONS = ["Active", "Due Soon", "Overdue", "Paid"];

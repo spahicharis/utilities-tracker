@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { TRACKING_START_YEAR } from "../config/constants.js";
 import { getYearFromBill } from "../lib/bills.js";
-import { isPropertyOwnedByUser, listBills } from "../lib/db.js";
+import { isPropertyOwnedByUser, listBills, listVehicleRegistrations } from "../lib/db.js";
 
 const router = Router();
 
@@ -16,6 +16,7 @@ router.get("/", async (req, res) => {
   }
 
   let bills = [];
+  let registrations = [];
   try {
     const isOwned = await isPropertyOwnedByUser(propertyId, userId);
     if (!isOwned) {
@@ -23,6 +24,7 @@ router.get("/", async (req, res) => {
       return;
     }
     bills = await listBills({ userId, propertyId });
+    registrations = await listVehicleRegistrations({ userId, propertyId });
   } catch (error) {
     res.status(500).json({ error: "Failed to load dashboard data." });
     return;
@@ -68,6 +70,36 @@ router.get("/", async (req, res) => {
       status: bill.status
     }));
 
+  const registrationSummary = registrations.reduce(
+    (accumulator, registration) => {
+      accumulator.total += 1;
+      if (registration.status === "Paid") {
+        accumulator.paid += 1;
+      }
+      if (registration.status === "Due Soon") {
+        accumulator.dueSoon += 1;
+      }
+      if (registration.status === "Overdue") {
+        accumulator.overdue += 1;
+      }
+      return accumulator;
+    },
+    { total: 0, paid: 0, dueSoon: 0, overdue: 0 }
+  );
+
+  const upcomingRegistrations = registrations
+    .filter((registration) => registration.status === "Due Soon" || registration.status === "Overdue")
+    .slice(0, 6)
+    .map((registration) => ({
+      id: registration.id,
+      vehicleName: registration.vehicleName,
+      licencePlate: registration.licencePlate,
+      amount: Number(registration.amount || 0),
+      currency: registration.currency || "KM",
+      dueDate: registration.dueDate,
+      status: registration.status
+    }));
+
   res.json({
     selectedYear,
     trackingStartYear: TRACKING_START_YEAR,
@@ -83,7 +115,11 @@ router.get("/", async (req, res) => {
     yearlyTotals,
     statusSplit: { paid, pending, overdue },
     topProviders,
-    unpaidBills
+    unpaidBills,
+    vehicleRegistrations: {
+      summary: registrationSummary,
+      upcoming: upcomingRegistrations
+    }
   });
 });
 

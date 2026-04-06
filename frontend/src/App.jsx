@@ -6,6 +6,7 @@ import DashboardPage from "./pages/admin/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import ProvidersPage from "./pages/admin/ProvidersPage";
 import SubscriptionsPage from "./pages/admin/SubscriptionsPage";
+import VehiclesPage from "./pages/admin/VehiclesPage";
 import { clearAuthToken, setAuthToken } from "./lib/api";
 import { supabase } from "./lib/supabase";
 import PropertyContextPage from "./pages/PropertyContextPage";
@@ -163,6 +164,7 @@ function App() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="bills" element={<BillsPage />} />
+        <Route path="vehicles" element={<VehiclesPage />} />
         <Route path="subscriptions" element={<SubscriptionsPage />} />
         <Route path="providers" element={<ProvidersPage />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />

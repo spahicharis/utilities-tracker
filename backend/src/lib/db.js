@@ -60,6 +60,22 @@ function mapSubscriptionRow(row) {
   };
 }
 
+function mapVehicleRegistrationRow(row) {
+  return {
+    id: row.id,
+    propertyId: row.property_id,
+    vehicleName: row.vehicle_name,
+    licencePlate: row.licence_plate,
+    registrationNumber: row.registration_number ?? "",
+    amount: Number(row.amount),
+    currency: row.currency ?? "KM",
+    dueDate: row.due_date,
+    paidDate: row.paid_date,
+    status: row.status,
+    notes: row.notes ?? ""
+  };
+}
+
 export async function initializeDatabase() {
   const client = await getPool().connect();
   try {
@@ -138,15 +154,39 @@ export async function initializeDatabase() {
       "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS billing_cycle TEXT NOT NULL DEFAULT 'Monthly'"
     );
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS vehicle_registrations (
+        id UUID PRIMARY KEY,
+        property_id UUID,
+        vehicle_name TEXT NOT NULL,
+        licence_plate TEXT NOT NULL,
+        registration_number TEXT NOT NULL DEFAULT '',
+        amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+        currency TEXT NOT NULL DEFAULT 'KM',
+        due_date DATE NOT NULL,
+        paid_date DATE,
+        status TEXT NOT NULL CHECK (status IN ('Active', 'Due Soon', 'Overdue', 'Paid')),
+        notes TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
+    await client.query("ALTER TABLE vehicle_registrations ADD COLUMN IF NOT EXISTS property_id UUID");
+    await client.query("ALTER TABLE vehicle_registrations ADD COLUMN IF NOT EXISTS registration_number TEXT NOT NULL DEFAULT ''");
+    await client.query("ALTER TABLE vehicle_registrations ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'KM'");
+    await client.query("ALTER TABLE vehicle_registrations ADD COLUMN IF NOT EXISTS paid_date DATE");
+    await client.query("ALTER TABLE vehicle_registrations ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''");
+
     const defaultPropertyResult = await client.query("SELECT id FROM properties ORDER BY name ASC LIMIT 1");
     const defaultPropertyId = defaultPropertyResult.rows[0]?.id;
     if (defaultPropertyId) {
       await client.query("UPDATE bills SET property_id = $1 WHERE property_id IS NULL", [defaultPropertyId]);
       await client.query("UPDATE subscriptions SET property_id = $1 WHERE property_id IS NULL", [defaultPropertyId]);
+      await client.query("UPDATE vehicle_registrations SET property_id = $1 WHERE property_id IS NULL", [defaultPropertyId]);
     }
 
     await client.query("ALTER TABLE bills ALTER COLUMN property_id SET NOT NULL");
     await client.query("ALTER TABLE subscriptions ALTER COLUMN property_id SET NOT NULL");
+    await client.query("ALTER TABLE vehicle_registrations ALTER COLUMN property_id SET NOT NULL");
 
     await client.query(`
       DO $$
@@ -156,6 +196,19 @@ export async function initializeDatabase() {
         ) THEN
           ALTER TABLE bills
             ADD CONSTRAINT bills_property_id_fkey
+            FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE RESTRICT;
+        END IF;
+      END $$;
+    `);
+
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'vehicle_registrations_property_id_fkey'
+        ) THEN
+          ALTER TABLE vehicle_registrations
+            ADD CONSTRAINT vehicle_registrations_property_id_fkey
             FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE RESTRICT;
         END IF;
       END $$;
@@ -419,6 +472,123 @@ export async function removeSubscription(id, propertyId, userId) {
       WHERE s.id = $1
         AND s.property_id = $2
         AND p.id = s.property_id
+        AND p.user_id = $3
+    `,
+    [id, propertyId, userId]
+  );
+  return Boolean(result.rowCount);
+}
+
+export async function listVehicleRegistrations(filters = {}) {
+  const values = [];
+  const where = [];
+
+  values.push(filters.userId);
+  where.push(
+    `EXISTS (SELECT 1 FROM properties p WHERE p.id = vehicle_registrations.property_id AND p.user_id = $${values.length})`
+  );
+
+  if (filters.propertyId) {
+    values.push(filters.propertyId);
+    where.push(`property_id = $${values.length}`);
+  }
+
+  const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+  const result = await getPool().query(
+    `
+      SELECT id, property_id, vehicle_name, licence_plate, registration_number, amount, currency, due_date, paid_date, status, notes
+      FROM vehicle_registrations
+      ${whereClause}
+      ORDER BY due_date ASC, LOWER(vehicle_name) ASC, LOWER(licence_plate) ASC
+    `,
+    values
+  );
+
+  return result.rows.map(mapVehicleRegistrationRow);
+}
+
+export async function insertVehicleRegistration(registration) {
+  const result = await getPool().query(
+    `
+      INSERT INTO vehicle_registrations(
+        id,
+        property_id,
+        vehicle_name,
+        licence_plate,
+        registration_number,
+        amount,
+        currency,
+        due_date,
+        paid_date,
+        status,
+        notes
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, '')::date, $10, $11)
+      RETURNING id, property_id, vehicle_name, licence_plate, registration_number, amount, currency, due_date, paid_date, status, notes
+    `,
+    [
+      registration.id,
+      registration.propertyId,
+      registration.vehicleName,
+      registration.licencePlate,
+      registration.registrationNumber,
+      registration.amount,
+      registration.currency,
+      registration.dueDate,
+      registration.paidDate,
+      registration.status,
+      registration.notes
+    ]
+  );
+  return mapVehicleRegistrationRow(result.rows[0]);
+}
+
+export async function updateVehicleRegistration(id, registration, userId) {
+  const result = await getPool().query(
+    `
+      UPDATE vehicle_registrations vr
+      SET vehicle_name = $3,
+          licence_plate = $4,
+          registration_number = $5,
+          amount = $6,
+          currency = $7,
+          due_date = $8,
+          paid_date = NULLIF($9, '')::date,
+          status = $10,
+          notes = $11
+      FROM properties p
+      WHERE vr.id = $1
+        AND vr.property_id = $2
+        AND p.id = vr.property_id
+        AND p.user_id = $12
+      RETURNING vr.id, vr.property_id, vr.vehicle_name, vr.licence_plate, vr.registration_number, vr.amount, vr.currency, vr.due_date, vr.paid_date, vr.status, vr.notes
+    `,
+    [
+      id,
+      registration.propertyId,
+      registration.vehicleName,
+      registration.licencePlate,
+      registration.registrationNumber,
+      registration.amount,
+      registration.currency,
+      registration.dueDate,
+      registration.paidDate,
+      registration.status,
+      registration.notes,
+      userId
+    ]
+  );
+  return result.rows[0] ? mapVehicleRegistrationRow(result.rows[0]) : null;
+}
+
+export async function removeVehicleRegistration(id, propertyId, userId) {
+  const result = await getPool().query(
+    `
+      DELETE FROM vehicle_registrations vr
+      USING properties p
+      WHERE vr.id = $1
+        AND vr.property_id = $2
+        AND p.id = vr.property_id
         AND p.user_id = $3
     `,
     [id, propertyId, userId]

@@ -105,6 +105,10 @@ export const api = {
     const query = `?propertyId=${encodeURIComponent(propertyId)}`;
     return request(`/api/subscriptions${query}`);
   },
+  getVehicleRegistrations(propertyId) {
+    const query = `?propertyId=${encodeURIComponent(propertyId)}`;
+    return request(`/api/vehicle-registrations${query}`);
+  },
   addBill(input) {
     return request("/api/bills", {
       method: "POST",
@@ -117,14 +121,31 @@ export const api = {
       body: JSON.stringify(input)
     });
   },
+  addVehicleRegistration(input) {
+    return request("/api/vehicle-registrations", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
   updateSubscription(id, input) {
     return request(`/api/subscriptions/${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify(input)
     });
   },
+  updateVehicleRegistration(id, input) {
+    return request(`/api/vehicle-registrations/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(input)
+    });
+  },
   deleteSubscription(id, propertyId) {
     return request(`/api/subscriptions/${encodeURIComponent(id)}?propertyId=${encodeURIComponent(propertyId)}`, {
+      method: "DELETE"
+    });
+  },
+  deleteVehicleRegistration(id, propertyId) {
+    return request(`/api/vehicle-registrations/${encodeURIComponent(id)}?propertyId=${encodeURIComponent(propertyId)}`, {
       method: "DELETE"
     });
   },

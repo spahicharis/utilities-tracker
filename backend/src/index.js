@@ -6,6 +6,7 @@ import dashboardRoutes from "./routes/dashboard.js";
 import providersRoutes from "./routes/providers.js";
 import propertiesRoutes from "./routes/properties.js";
 import subscriptionsRoutes from "./routes/subscriptions.js";
+import vehicleRegistrationsRoutes from "./routes/vehicleRegistrations.js";
 import { requireAuth } from "./middleware/requireAuth.js";
 import { initializeDatabase } from "./lib/db.js";
 
@@ -23,6 +24,7 @@ app.use("/api/properties", requireAuth, propertiesRoutes);
 app.use("/api/providers", requireAuth, providersRoutes);
 app.use("/api/bills", requireAuth, billsRoutes);
 app.use("/api/subscriptions", requireAuth, subscriptionsRoutes);
+app.use("/api/vehicle-registrations", requireAuth, vehicleRegistrationsRoutes);
 app.use("/api/dashboard", requireAuth, dashboardRoutes);
 
 try {
