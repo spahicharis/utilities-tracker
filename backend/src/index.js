@@ -5,6 +5,7 @@ import billsRoutes from "./routes/bills.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import providersRoutes from "./routes/providers.js";
 import propertiesRoutes from "./routes/properties.js";
+import playstationAccountsRoutes from "./routes/playstationAccounts.js";
 import subscriptionsRoutes from "./routes/subscriptions.js";
 import vehicleRegistrationsRoutes from "./routes/vehicleRegistrations.js";
 import { requireAuth } from "./middleware/requireAuth.js";
@@ -22,6 +23,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/properties", requireAuth, propertiesRoutes);
 app.use("/api/providers", requireAuth, providersRoutes);
+app.use("/api/playstation-accounts", requireAuth, playstationAccountsRoutes);
 app.use("/api/bills", requireAuth, billsRoutes);
 app.use("/api/subscriptions", requireAuth, subscriptionsRoutes);
 app.use("/api/vehicle-registrations", requireAuth, vehicleRegistrationsRoutes);

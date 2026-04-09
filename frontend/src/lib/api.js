@@ -80,16 +80,58 @@ export const api = {
   getProviders() {
     return request("/api/providers");
   },
+  getPlaystationAccounts() {
+    return request("/api/playstation-accounts");
+  },
   addProvider(provider) {
     return request("/api/providers", {
       method: "POST",
       body: JSON.stringify(provider)
     });
   },
+  addPlaystationAccount(input) {
+    return request("/api/playstation-accounts", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+  updatePlaystationAccountStatus(id, status) {
+    return request(`/api/playstation-accounts/${encodeURIComponent(id)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status })
+    });
+  },
+  addPlaystationGame(accountId, input) {
+    return request(`/api/playstation-accounts/${encodeURIComponent(accountId)}/games`, {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
+  addPlaystationLibraryGame(input) {
+    return request("/api/playstation-accounts/games", {
+      method: "POST",
+      body: JSON.stringify(input)
+    });
+  },
   updateProvider(name, provider) {
     return request(`/api/providers/${encodeURIComponent(name)}`, {
       method: "PATCH",
       body: JSON.stringify(provider)
+    });
+  },
+  deletePlaystationAccount(id) {
+    return request(`/api/playstation-accounts/${encodeURIComponent(id)}`, {
+      method: "DELETE"
+    });
+  },
+  deletePlaystationGame(accountId, gameId) {
+    return request(`/api/playstation-accounts/${encodeURIComponent(accountId)}/games/${encodeURIComponent(gameId)}`, {
+      method: "DELETE"
+    });
+  },
+  deletePlaystationLibraryGame(gameId) {
+    return request(`/api/playstation-accounts/games/${encodeURIComponent(gameId)}`, {
+      method: "DELETE"
     });
   },
   deleteProvider(name) {

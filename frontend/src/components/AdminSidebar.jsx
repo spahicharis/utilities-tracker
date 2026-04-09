@@ -5,6 +5,7 @@ const links = [
   { label: "Bills", to: "/admin/bills" },
   { label: "Vehicles", to: "/admin/vehicles" },
   { label: "Subscriptions", to: "/admin/subscriptions" },
+  { label: "PlayStation", to: "/admin/playstation-accounts" },
   { label: "Providers", to: "/admin/providers" }
 ];
 

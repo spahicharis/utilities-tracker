@@ -4,6 +4,7 @@ import AdminPage from "./pages/AdminPage";
 import BillsPage from "./pages/admin/BillsPage";
 import DashboardPage from "./pages/admin/DashboardPage";
 import LoginPage from "./pages/LoginPage";
+import PlaystationAccountsPage from "./pages/admin/PlaystationAccountsPage";
 import ProvidersPage from "./pages/admin/ProvidersPage";
 import SubscriptionsPage from "./pages/admin/SubscriptionsPage";
 import VehiclesPage from "./pages/admin/VehiclesPage";
@@ -166,6 +167,7 @@ function App() {
         <Route path="bills" element={<BillsPage />} />
         <Route path="vehicles" element={<VehiclesPage />} />
         <Route path="subscriptions" element={<SubscriptionsPage />} />
+        <Route path="playstation-accounts" element={<PlaystationAccountsPage />} />
         <Route path="providers" element={<ProvidersPage />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>

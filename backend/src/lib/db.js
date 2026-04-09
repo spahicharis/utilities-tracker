@@ -76,6 +76,43 @@ function mapVehicleRegistrationRow(row) {
   };
 }
 
+function mapPlaystationAccountRow(row) {
+  return {
+    id: row.id,
+    email: row.email,
+    password: row.password,
+    status: row.status ?? "Active",
+    createdAt: row.created_at
+  };
+}
+
+function mapPlaystationGameRow(row) {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    name: row.name,
+    releaseYear: row.release_year,
+    ignRating: row.ign_rating === null ? null : Number(row.ign_rating),
+    howLongToBeat: row.how_long_to_beat,
+    imageUrl: row.image_url ?? "",
+    createdAt: row.created_at
+  };
+}
+
+function mapPlaystationLibraryGameRow(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    status: row.status ?? "To Be Played",
+    releaseYear: row.release_year,
+    ignRating: row.ign_rating === null ? null : Number(row.ign_rating),
+    howLongToBeat: row.how_long_to_beat,
+    imageUrl: row.image_url ?? "",
+    createdAt: row.created_at
+  };
+}
+
 export async function initializeDatabase() {
   const client = await getPool().connect();
   try {
@@ -175,6 +212,117 @@ export async function initializeDatabase() {
     await client.query("ALTER TABLE vehicle_registrations ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'KM'");
     await client.query("ALTER TABLE vehicle_registrations ADD COLUMN IF NOT EXISTS paid_date DATE");
     await client.query("ALTER TABLE vehicle_registrations ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''");
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS playstation_accounts (
+        id UUID PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        password TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Enabled', 'Disabled', 'Sold', 'Active')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await client.query("ALTER TABLE playstation_accounts ADD COLUMN IF NOT EXISTS user_id TEXT");
+    await client.query("ALTER TABLE playstation_accounts ADD COLUMN IF NOT EXISTS email TEXT");
+    await client.query("ALTER TABLE playstation_accounts ADD COLUMN IF NOT EXISTS password TEXT");
+    await client.query("ALTER TABLE playstation_accounts ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'Active'");
+    await client.query("ALTER TABLE playstation_accounts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
+    await client.query("UPDATE playstation_accounts SET status = 'Active' WHERE status IS NULL OR TRIM(status) = ''");
+    await client.query(
+      "UPDATE playstation_accounts SET status = 'Disabled' WHERE LOWER(status) = 'disable'"
+    );
+    await client.query(
+      "UPDATE playstation_accounts SET status = 'Enabled' WHERE LOWER(status) = 'enable'"
+    );
+    await client.query("ALTER TABLE playstation_accounts DROP CONSTRAINT IF EXISTS playstation_accounts_status_check");
+    await client.query(
+      "ALTER TABLE playstation_accounts ADD CONSTRAINT playstation_accounts_status_check CHECK (status IN ('Enabled', 'Disabled', 'Sold', 'Active'))"
+    );
+    await client.query("ALTER TABLE playstation_accounts ALTER COLUMN user_id SET NOT NULL");
+    await client.query("ALTER TABLE playstation_accounts ALTER COLUMN email SET NOT NULL");
+    await client.query("ALTER TABLE playstation_accounts ALTER COLUMN password SET NOT NULL");
+    await client.query("ALTER TABLE playstation_accounts ALTER COLUMN status SET NOT NULL");
+    await client.query("CREATE INDEX IF NOT EXISTS idx_playstation_accounts_user_id ON playstation_accounts(user_id)");
+    await client.query(
+      "CREATE UNIQUE INDEX IF NOT EXISTS playstation_accounts_user_email_unique_idx ON playstation_accounts(user_id, LOWER(email))"
+    );
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS playstation_account_games (
+        id UUID PRIMARY KEY,
+        account_id UUID NOT NULL,
+        name TEXT NOT NULL,
+        release_year INTEGER,
+        ign_rating NUMERIC(3,1),
+        how_long_to_beat TEXT NOT NULL DEFAULT '',
+        image_url TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    await client.query("ALTER TABLE playstation_account_games ADD COLUMN IF NOT EXISTS account_id UUID");
+    await client.query("ALTER TABLE playstation_account_games ADD COLUMN IF NOT EXISTS name TEXT");
+    await client.query("ALTER TABLE playstation_account_games ADD COLUMN IF NOT EXISTS release_year INTEGER");
+    await client.query("ALTER TABLE playstation_account_games ADD COLUMN IF NOT EXISTS ign_rating NUMERIC(3,1)");
+    await client.query("ALTER TABLE playstation_account_games ADD COLUMN IF NOT EXISTS how_long_to_beat TEXT NOT NULL DEFAULT ''");
+    await client.query("ALTER TABLE playstation_account_games ADD COLUMN IF NOT EXISTS image_url TEXT NOT NULL DEFAULT ''");
+    await client.query("ALTER TABLE playstation_account_games ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
+    await client.query("ALTER TABLE playstation_account_games ALTER COLUMN account_id SET NOT NULL");
+    await client.query("ALTER TABLE playstation_account_games ALTER COLUMN name SET NOT NULL");
+    await client.query("ALTER TABLE playstation_account_games DROP CONSTRAINT IF EXISTS playstation_account_games_ign_rating_check");
+    await client.query(
+      "ALTER TABLE playstation_account_games ADD CONSTRAINT playstation_account_games_ign_rating_check CHECK (ign_rating IS NULL OR (ign_rating >= 0 AND ign_rating <= 10))"
+    );
+    await client.query("CREATE INDEX IF NOT EXISTS idx_playstation_account_games_account_id ON playstation_account_games(account_id)");
+
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'playstation_account_games_account_id_fkey'
+        ) THEN
+          ALTER TABLE playstation_account_games
+            ADD CONSTRAINT playstation_account_games_account_id_fkey
+            FOREIGN KEY (account_id) REFERENCES playstation_accounts(id) ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS playstation_games (
+        id UUID PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'To Be Played' CHECK (status IN ('In Progress', 'Completed', 'To Be Played')),
+        release_year INTEGER,
+        ign_rating NUMERIC(3,1),
+        how_long_to_beat TEXT NOT NULL DEFAULT '',
+        image_url TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    await client.query("ALTER TABLE playstation_games ADD COLUMN IF NOT EXISTS user_id TEXT");
+    await client.query("ALTER TABLE playstation_games ADD COLUMN IF NOT EXISTS name TEXT");
+    await client.query("ALTER TABLE playstation_games ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'To Be Played'");
+    await client.query("ALTER TABLE playstation_games ADD COLUMN IF NOT EXISTS release_year INTEGER");
+    await client.query("ALTER TABLE playstation_games ADD COLUMN IF NOT EXISTS ign_rating NUMERIC(3,1)");
+    await client.query("ALTER TABLE playstation_games ADD COLUMN IF NOT EXISTS how_long_to_beat TEXT NOT NULL DEFAULT ''");
+    await client.query("ALTER TABLE playstation_games ADD COLUMN IF NOT EXISTS image_url TEXT NOT NULL DEFAULT ''");
+    await client.query("ALTER TABLE playstation_games ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
+    await client.query("UPDATE playstation_games SET status = 'To Be Played' WHERE status IS NULL OR TRIM(status) = ''");
+    await client.query("ALTER TABLE playstation_games DROP CONSTRAINT IF EXISTS playstation_games_status_check");
+    await client.query(
+      "ALTER TABLE playstation_games ADD CONSTRAINT playstation_games_status_check CHECK (status IN ('In Progress', 'Completed', 'To Be Played'))"
+    );
+    await client.query("ALTER TABLE playstation_games ALTER COLUMN user_id SET NOT NULL");
+    await client.query("ALTER TABLE playstation_games ALTER COLUMN name SET NOT NULL");
+    await client.query("ALTER TABLE playstation_games ALTER COLUMN status SET NOT NULL");
+    await client.query("ALTER TABLE playstation_games DROP CONSTRAINT IF EXISTS playstation_games_ign_rating_check");
+    await client.query(
+      "ALTER TABLE playstation_games ADD CONSTRAINT playstation_games_ign_rating_check CHECK (ign_rating IS NULL OR (ign_rating >= 0 AND ign_rating <= 10))"
+    );
+    await client.query("CREATE INDEX IF NOT EXISTS idx_playstation_games_user_id ON playstation_games(user_id)");
 
     const defaultPropertyResult = await client.query("SELECT id FROM properties ORDER BY name ASC LIMIT 1");
     const defaultPropertyId = defaultPropertyResult.rows[0]?.id;
@@ -380,6 +528,189 @@ export async function updateProvider(originalName, provider) {
 
 export async function removeProvider(name) {
   const result = await getPool().query("DELETE FROM providers WHERE name = $1 RETURNING name", [name]);
+  return Boolean(result.rowCount);
+}
+
+export async function listPlaystationAccounts(userId) {
+  const accountsResult = await getPool().query(
+    `
+      SELECT id, user_id, email, password, status, created_at
+      FROM playstation_accounts
+      WHERE user_id = $1
+      ORDER BY created_at DESC, LOWER(email) ASC
+    `,
+    [userId]
+  );
+
+  const accounts = accountsResult.rows.map(mapPlaystationAccountRow);
+  if (accounts.length === 0) {
+    return accounts;
+  }
+
+  const gamesResult = await getPool().query(
+    `
+      SELECT g.id, g.account_id, g.name, g.release_year, g.ign_rating, g.how_long_to_beat, g.image_url, g.created_at
+      FROM playstation_account_games g
+      JOIN playstation_accounts a ON a.id = g.account_id
+      WHERE a.user_id = $1
+      ORDER BY g.created_at DESC, LOWER(g.name) ASC
+    `,
+    [userId]
+  );
+
+  const gamesByAccountId = gamesResult.rows.reduce((accumulator, row) => {
+    const game = mapPlaystationGameRow(row);
+    if (!accumulator[game.accountId]) {
+      accumulator[game.accountId] = [];
+    }
+    accumulator[game.accountId].push(game);
+    return accumulator;
+  }, {});
+
+  return accounts.map((account) => ({
+    ...account,
+    games: gamesByAccountId[account.id] || []
+  }));
+}
+
+export async function addPlaystationAccount(account) {
+  const result = await getPool().query(
+    `
+      INSERT INTO playstation_accounts(id, user_id, email, password, status)
+      SELECT $1, $2, $3, $4, $5
+      WHERE NOT EXISTS (
+        SELECT 1 FROM playstation_accounts WHERE user_id = $2 AND LOWER(email) = LOWER($3)
+      )
+      RETURNING id, user_id, email, password, status, created_at
+    `,
+    [randomUUID(), account.userId, account.email, account.password, account.status]
+  );
+
+  return result.rows[0] ? mapPlaystationAccountRow(result.rows[0]) : null;
+}
+
+export async function updatePlaystationAccountStatus(id, status, userId) {
+  const result = await getPool().query(
+    `
+      UPDATE playstation_accounts
+      SET status = $2
+      WHERE id = $1 AND user_id = $3
+      RETURNING id, user_id, email, password, status, created_at
+    `,
+    [id, status, userId]
+  );
+
+  return result.rows[0] ? mapPlaystationAccountRow(result.rows[0]) : null;
+}
+
+export async function addPlaystationGame(game) {
+  const result = await getPool().query(
+    `
+      INSERT INTO playstation_account_games(
+        id,
+        account_id,
+        name,
+        release_year,
+        ign_rating,
+        how_long_to_beat,
+        image_url
+      )
+      SELECT $1, $2, $3, $4, $5, $6, $7
+      WHERE EXISTS (
+        SELECT 1 FROM playstation_accounts WHERE id = $2 AND user_id = $8
+      )
+      RETURNING id, account_id, name, release_year, ign_rating, how_long_to_beat, image_url, created_at
+    `,
+    [
+      randomUUID(),
+      game.accountId,
+      game.name,
+      game.releaseYear,
+      game.ignRating,
+      game.howLongToBeat,
+      game.imageUrl,
+      game.userId
+    ]
+  );
+
+  return result.rows[0] ? mapPlaystationGameRow(result.rows[0]) : null;
+}
+
+export async function removePlaystationGame(id, accountId, userId) {
+  const result = await getPool().query(
+    `
+      DELETE FROM playstation_account_games g
+      USING playstation_accounts a
+      WHERE g.id = $1
+        AND g.account_id = $2
+        AND a.id = g.account_id
+        AND a.user_id = $3
+      RETURNING g.id
+    `,
+    [id, accountId, userId]
+  );
+
+  return Boolean(result.rowCount);
+}
+
+export async function listPlaystationLibraryGames(userId) {
+  const result = await getPool().query(
+    `
+      SELECT id, user_id, name, status, release_year, ign_rating, how_long_to_beat, image_url, created_at
+      FROM playstation_games
+      WHERE user_id = $1
+      ORDER BY created_at DESC, LOWER(name) ASC
+    `,
+    [userId]
+  );
+
+  return result.rows.map(mapPlaystationLibraryGameRow);
+}
+
+export async function addPlaystationLibraryGame(game) {
+  const result = await getPool().query(
+    `
+      INSERT INTO playstation_games(
+        id,
+        user_id,
+        name,
+        status,
+        release_year,
+        ign_rating,
+        how_long_to_beat,
+        image_url
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, user_id, name, status, release_year, ign_rating, how_long_to_beat, image_url, created_at
+    `,
+    [
+      randomUUID(),
+      game.userId,
+      game.name,
+      game.status,
+      game.releaseYear,
+      game.ignRating,
+      game.howLongToBeat,
+      game.imageUrl
+    ]
+  );
+
+  return result.rows[0] ? mapPlaystationLibraryGameRow(result.rows[0]) : null;
+}
+
+export async function removePlaystationLibraryGame(id, userId) {
+  const result = await getPool().query(
+    "DELETE FROM playstation_games WHERE id = $1 AND user_id = $2 RETURNING id",
+    [id, userId]
+  );
+  return Boolean(result.rowCount);
+}
+
+export async function removePlaystationAccount(id, userId) {
+  const result = await getPool().query(
+    "DELETE FROM playstation_accounts WHERE id = $1 AND user_id = $2 RETURNING id",
+    [id, userId]
+  );
   return Boolean(result.rowCount);
 }
 
