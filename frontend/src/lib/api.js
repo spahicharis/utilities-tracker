@@ -139,10 +139,14 @@ export const api = {
       method: "DELETE"
     });
   },
-  getBills(propertyId) {
-    const query = `?propertyId=${encodeURIComponent(propertyId)}`;
-    return request(`/api/bills${query}`);
-  },
+   getBills(propertyId, type = "") {
+     const query = new URLSearchParams();
+     query.set("propertyId", propertyId);
+     if (type) {
+       query.set("type", type);
+     }
+     return request(`/api/bills?${query.toString()}`);
+   },
   getSubscriptions(propertyId) {
     const query = `?propertyId=${encodeURIComponent(propertyId)}`;
     return request(`/api/subscriptions${query}`);

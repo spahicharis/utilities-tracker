@@ -37,138 +37,151 @@ async function ensurePropertyAccess(res, userId, propertyId) {
 }
 
 router.get("/", async (req, res) => {
-  const userId = String(req.authUser?.id || "").trim();
-  const month = typeof req.query.month === "string" ? req.query.month : "";
-  const year = typeof req.query.year === "string" ? req.query.year : "";
-  const propertyId = typeof req.query.propertyId === "string" ? req.query.propertyId.trim() : "";
+   const userId = String(req.authUser?.id || "").trim();
+   const month = typeof req.query.month === "string" ? req.query.month : "";
+   const year = typeof req.query.year === "string" ? req.query.year : "";
+   const propertyId = typeof req.query.propertyId === "string" ? req.query.propertyId.trim() : "";
+   const type = typeof req.query.type === "string" ? req.query.type : "";
 
-  if (!propertyId) {
-    res.status(400).json({ error: "propertyId is required." });
-    return;
-  }
+   if (!propertyId) {
+     res.status(400).json({ error: "propertyId is required." });
+     return;
+   }
 
-  try {
-    if (!(await ensurePropertyAccess(res, userId, propertyId))) {
-      return;
-    }
-    const bills = await listBills({ userId, propertyId, month, year });
-    res.json({ bills });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to load bills." });
-  }
-});
+   try {
+     if (!(await ensurePropertyAccess(res, userId, propertyId))) {
+       return;
+     }
+     const bills = await listBills({ userId, propertyId, month, year, type });
+     res.json({ bills });
+   } catch (error) {
+     res.status(500).json({ error: "Failed to load bills." });
+   }
+ });
 
 router.post("/", async (req, res) => {
-  const userId = String(req.authUser?.id || "").trim();
-  const propertyId = String(req.body?.propertyId || "").trim();
-  const provider = String(req.body?.provider || "").trim();
-  const billDate = String(req.body?.billDate || "").trim();
-  const billingMonth = String(req.body?.billingMonth || "").trim();
-  const status = String(req.body?.status || "Pending");
-  const currency = normalizeCurrency(req.body?.currency);
-  const amount = parseAmount(req.body?.amount);
+   const userId = String(req.authUser?.id || "").trim();
+   const propertyId = String(req.body?.propertyId || "").trim();
+   const provider = String(req.body?.provider || "").trim();
+   const billDate = String(req.body?.billDate || "").trim();
+   const billingMonth = String(req.body?.billingMonth || "").trim();
+   const status = String(req.body?.status || "Pending");
+   const currency = normalizeCurrency(req.body?.currency);
+   const amount = parseAmount(req.body?.amount);
+   const type = String(req.body?.type || "personal").trim();
 
-  if (!propertyId || !provider || !billDate || !billingMonth || amount === null) {
-    res.status(400).json({ error: "propertyId, provider, amount, billDate and billingMonth are required." });
-    return;
-  }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(billDate)) {
-    res.status(400).json({ error: "billDate must be in YYYY-MM-DD format." });
-    return;
-  }
-  if (!/^\d{4}-\d{2}$/.test(billingMonth)) {
-    res.status(400).json({ error: "billingMonth must be in YYYY-MM format." });
-    return;
-  }
-  if (!isValidStatus(status)) {
-    res.status(400).json({ error: `status must be one of: ${BILL_STATUS_OPTIONS.join(", ")}` });
-    return;
-  }
+   if (!propertyId || !provider || !billDate || !billingMonth || amount === null) {
+     res.status(400).json({ error: "propertyId, provider, amount, billDate and billingMonth are required." });
+     return;
+   }
+   if (!/^\d{4}-\d{2}-\d{2}$/.test(billDate)) {
+     res.status(400).json({ error: "billDate must be in YYYY-MM-DD format." });
+     return;
+   }
+   if (!/^\d{4}-\d{2}$/.test(billingMonth)) {
+     res.status(400).json({ error: "billingMonth must be in YYYY-MM format." });
+     return;
+   }
+   if (!isValidStatus(status)) {
+     res.status(400).json({ error: `status must be one of: ${BILL_STATUS_OPTIONS.join(", ")}` });
+     return;
+   }
+   if (!["personal", "business"].includes(type)) {
+     res.status(400).json({ error: "type must be one of: personal, business" });
+     return;
+   }
 
-  try {
-    if (!(await ensurePropertyAccess(res, userId, propertyId))) {
-      return;
-    }
-    const nextBill = await insertBill({
-      id: randomUUID(),
-      propertyId,
-      provider,
-      amount,
-      currency,
-      billDate,
-      billingMonth,
-      status
-    });
-    const bills = await listBills({ userId, propertyId });
-    res.status(201).json({ bill: nextBill, bills });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to create bill." });
-  }
-});
+   try {
+     if (!(await ensurePropertyAccess(res, userId, propertyId))) {
+       return;
+     }
+     const nextBill = await insertBill({
+       id: randomUUID(),
+       propertyId,
+       provider,
+       amount,
+       currency,
+       billDate,
+       billingMonth,
+       status,
+       type
+     });
+     const bills = await listBills({ userId, propertyId });
+     res.status(201).json({ bill: nextBill, bills });
+   } catch (error) {
+     res.status(500).json({ error: "Failed to create bill." });
+   }
+ });
 
 router.post("/import", async (req, res) => {
-  const userId = String(req.authUser?.id || "").trim();
-  const propertyId = String(req.body?.propertyId || "").trim();
-  const provider = String(req.body?.provider || "").trim();
-  const year = String(req.body?.year || "").trim();
-  const status = String(req.body?.status || "Pending").trim();
-  const currency = normalizeCurrency(req.body?.currency);
-  const csv = String(req.body?.csv || "").trim();
+   const userId = String(req.authUser?.id || "").trim();
+   const propertyId = String(req.body?.propertyId || "").trim();
+   const provider = String(req.body?.provider || "").trim();
+   const year = String(req.body?.year || "").trim();
+   const status = String(req.body?.status || "Pending").trim();
+   const currency = normalizeCurrency(req.body?.currency);
+   const csv = String(req.body?.csv || "").trim();
+   const type = String(req.body?.type || "personal").trim();
 
-  if (!propertyId || !provider || !csv || !year) {
-    res.status(400).json({ error: "propertyId, provider, year and csv are required." });
-    return;
-  }
-  if (!/^\d{4}$/.test(year)) {
-    res.status(400).json({ error: "year must be in YYYY format." });
-    return;
-  }
-  if (!isValidStatus(status)) {
-    res.status(400).json({ error: `status must be one of: ${BILL_STATUS_OPTIONS.join(", ")}` });
-    return;
-  }
+   if (!propertyId || !provider || !csv || !year) {
+     res.status(400).json({ error: "propertyId, provider, year and csv are required." });
+     return;
+   }
+   if (!/^\d{4}$/.test(year)) {
+     res.status(400).json({ error: "year must be in YYYY format." });
+     return;
+   }
+   if (!isValidStatus(status)) {
+     res.status(400).json({ error: `status must be one of: ${BILL_STATUS_OPTIONS.join(", ")}` });
+     return;
+   }
+   if (!["personal", "business"].includes(type)) {
+     res.status(400).json({ error: "type must be one of: personal, business" });
+     return;
+   }
 
-  const tokens = csv.split(/\r?\n/).map((token) => token.trim()).filter(Boolean);
-  if (tokens.length === 0) {
-    res.status(400).json({ error: "csv must contain at least one newline-delimited amount." });
-    return;
-  }
-  if (tokens.length > 12) {
-    res.status(400).json({ error: "csv can contain at most 12 values for one selected year." });
-    return;
-  }
+   const tokens = csv.split(/\r?\n/).map((token) => token.trim()).filter(Boolean);
+   if (tokens.length === 0) {
+     res.status(400).json({ error: "csv must contain at least one newline-delimited amount." });
+     return;
+   }
+   if (tokens.length > 12) {
+     res.status(400).json({ error: "csv can contain at most 12 values for one selected year." });
+     return;
+   }
 
-  const parsedAmounts = tokens.map(parseCurrencyAmountToken);
-  if (parsedAmounts.some((amount) => amount === null)) {
-    res.status(400).json({ error: "Each line must be a valid positive amount, e.g. 100 KM." });
-    return;
-  }
+   const parsedAmounts = tokens.map(parseCurrencyAmountToken);
+   if (parsedAmounts.some((amount) => amount === null)) {
+     res.status(400).json({ error: "Each line must be a valid positive amount, e.g. 100 KM." });
+     return;
+   }
 
-  const nextBills = parsedAmounts.map((amount, index) => {
-    const month = String(index + 1).padStart(2, "0");
-    return {
-      id: randomUUID(),
-      propertyId,
-      provider,
-      amount,
-      currency,
-      billDate: `${year}-${month}-01`,
-      billingMonth: `${year}-${month}`,
-      status
-    };
-  });
+   const nextBills = parsedAmounts.map((amount, index) => {
+     const month = String(index + 1).padStart(2, "0");
+     return {
+       id: randomUUID(),
+       propertyId,
+       provider,
+       amount,
+       currency,
+       billDate: `${year}-${month}-01`,
+       billingMonth: `${year}-${month}`,
+       status,
+       type
+     };
+   });
 
-  try {
-    if (!(await ensurePropertyAccess(res, userId, propertyId))) {
-      return;
-    }
-    const inserted = await insertBillsBulk(nextBills);
-    const bills = await listBills({ userId, propertyId });
-    res.status(201).json({ insertedCount: inserted.length, bills });
-  } catch (error) {
-    res.status(500).json({ error: "Failed to import bills from CSV." });
-  }
-});
+   try {
+     if (!(await ensurePropertyAccess(res, userId, propertyId))) {
+       return;
+     }
+     const inserted = await insertBillsBulk(nextBills);
+     const bills = await listBills({ userId, propertyId });
+     res.status(201).json({ insertedCount: inserted.length, bills });
+   } catch (error) {
+     res.status(500).json({ error: "Failed to import bills from CSV." });
+   }
+ });
 
 router.patch("/:id/status", async (req, res) => {
   const userId = String(req.authUser?.id || "").trim();

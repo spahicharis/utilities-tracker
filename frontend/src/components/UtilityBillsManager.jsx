@@ -73,7 +73,7 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                 return;
             }
             try {
-                const data = await api.getBills(selectedPropertyId);
+                const data = await api.getBills(selectedPropertyId, "personal");
                 if (isActive && Array.isArray(data?.bills)) {
                     setBills(data.bills);
                 }
@@ -141,6 +141,10 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
         setForm((current) => ({...current, [field]: value}));
     };
 
+    const onImportChange = (field, value) => {
+        setImportForm((current) => ({...current, [field]: value}));
+    };
+
     const toggleStatusFilter = (status) => {
         setSelectedStatuses((current) =>
             current.includes(status)
@@ -165,10 +169,11 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                 currency: form.currency,
                 billDate: form.billDate,
                 billingMonth: form.billingMonth,
-                status: form.status
+                status: form.status,
+                type: "personal"
             });
             if (Array.isArray(data?.bills)) {
-                setBills(data.bills);
+                setBills(data.bills.filter((b) => b.type === "personal"));
             } else if (data?.bill) {
                 setBills((current) => [data.bill, ...current]);
             }
@@ -191,7 +196,7 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
         try {
             const data = await api.updateBillStatus(id, status, selectedPropertyId);
             if (Array.isArray(data?.bills)) {
-                setBills(data.bills);
+                setBills(data.bills.filter((b) => b.type === "personal"));
             } else if (data?.bill) {
                 setBills((current) => current.map((bill) => (bill.id === id ? data.bill : bill)));
             }
@@ -205,7 +210,7 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
         try {
             const data = await api.deleteBill(id, selectedPropertyId);
             if (Array.isArray(data?.bills)) {
-                setBills(data.bills);
+                setBills(data.bills.filter((b) => b.type === "personal"));
             } else {
                 setBills((current) => current.filter((bill) => bill.id !== id));
             }
@@ -234,10 +239,11 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                 year,
                 currency: importForm.currency,
                 status: importForm.status,
-                csv
+                csv,
+                type: "personal"
             });
             if (Array.isArray(data?.bills)) {
-                setBills(data.bills);
+                setBills(data.bills.filter((b) => b.type === "personal"));
             }
             setImportMessage(`Imported ${Number(data?.insertedCount || 0)} bills.`);
             setImportForm((current) => ({...current, csv: ""}));
@@ -517,7 +523,7 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-cyan-300 focus:border-cyan-400 focus:ring-4"
                                 />
                             </label>
-                            <label className="block hidden">
+                            <label className="hidden">
                                 <span
                                     className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Currency</span>
                                 <select

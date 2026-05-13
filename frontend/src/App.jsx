@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AdminPage from "./pages/AdminPage";
 import BillsPage from "./pages/admin/BillsPage";
+import BusinessUtilitiesPage from "./pages/admin/BusinessUtilitiesPage";
 import DashboardPage from "./pages/admin/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import PlaystationAccountsPage from "./pages/admin/PlaystationAccountsPage";
@@ -162,14 +163,15 @@ function App() {
           )
         }
       >
-        <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="bills" element={<BillsPage />} />
-        <Route path="vehicles" element={<VehiclesPage />} />
-        <Route path="subscriptions" element={<SubscriptionsPage />} />
-        <Route path="playstation-accounts" element={<PlaystationAccountsPage />} />
-        <Route path="providers" element={<ProvidersPage />} />
-        <Route path="*" element={<Navigate to="dashboard" replace />} />
+       <Route index element={<Navigate to="dashboard" replace />} />
+         <Route path="dashboard" element={<DashboardPage />} />
+         <Route path="bills" element={<BillsPage />} />
+         <Route path="business-utilities" element={<BusinessUtilitiesPage />} />
+         <Route path="vehicles" element={<VehiclesPage />} />
+         <Route path="subscriptions" element={<SubscriptionsPage />} />
+         <Route path="playstation-accounts" element={<PlaystationAccountsPage />} />
+         <Route path="providers" element={<ProvidersPage />} />
+         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Route>
       <Route path="*" element={<Navigate to={isAuthenticated ? (selectedPropertyId ? "/admin" : "/context") : "/login"} replace />} />
     </Routes>

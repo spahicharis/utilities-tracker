@@ -19,17 +19,18 @@ function getPool() {
 }
 
 function mapBillRow(row) {
-  return {
-    id: row.id,
-    propertyId: row.property_id,
-    provider: row.provider,
-    amount: Number(row.amount),
-    currency: row.currency ?? "KM",
-    billDate: row.bill_date,
-    billingMonth: row.billing_month,
-    status: row.status
-  };
-}
+   return {
+     id: row.id,
+     propertyId: row.property_id,
+     provider: row.provider,
+     amount: Number(row.amount),
+     currency: row.currency ?? "KM",
+     billDate: row.bill_date,
+     billingMonth: row.billing_month,
+     status: row.status,
+     type: row.type ?? "personal"
+   };
+ }
 
 function mapProviderRow(row) {
   return {
@@ -156,21 +157,25 @@ export async function initializeDatabase() {
     await client.query("ALTER TABLE providers ADD COLUMN IF NOT EXISTS logo TEXT NOT NULL DEFAULT ''");
     await client.query("ALTER TABLE providers ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT ''");
 
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS bills (
-        id UUID PRIMARY KEY,
-        property_id UUID,
-        provider TEXT NOT NULL,
-        amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
-        currency TEXT NOT NULL DEFAULT 'KM',
-        bill_date DATE NOT NULL,
-        billing_month TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('Pending', 'Paid', 'Overdue'))
-      );
-    `);
+     await client.query(`
+       CREATE TABLE IF NOT EXISTS bills (
+         id UUID PRIMARY KEY,
+         property_id UUID,
+         provider TEXT NOT NULL,
+         amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+         currency TEXT NOT NULL DEFAULT 'KM',
+         bill_date DATE NOT NULL,
+         billing_month TEXT NOT NULL,
+         status TEXT NOT NULL CHECK (status IN ('Pending', 'Paid', 'Overdue')),
+         type TEXT NOT NULL DEFAULT 'personal' CHECK (type IN ('personal', 'business'))
+       );
+     `);
 
-    await client.query("ALTER TABLE bills ADD COLUMN IF NOT EXISTS property_id UUID");
-    await client.query("ALTER TABLE bills ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'KM'");
+     await client.query("ALTER TABLE bills ADD COLUMN IF NOT EXISTS property_id UUID");
+     await client.query("ALTER TABLE bills ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'KM'");
+     await client.query("ALTER TABLE bills ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'personal'");
+     await client.query("ALTER TABLE bills DROP CONSTRAINT IF EXISTS bills_type_check");
+     await client.query("ALTER TABLE bills ADD CONSTRAINT bills_type_check CHECK (type IN ('personal', 'business'))");
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS subscriptions (
@@ -928,97 +933,101 @@ export async function removeVehicleRegistration(id, propertyId, userId) {
 }
 
 export async function listBills(filters = {}) {
-  const values = [];
-  const where = [];
+   const values = [];
+   const where = [];
 
-  values.push(filters.userId);
-  where.push(`EXISTS (SELECT 1 FROM properties p WHERE p.id = bills.property_id AND p.user_id = $${values.length})`);
+   values.push(filters.userId);
+   where.push(`EXISTS (SELECT 1 FROM properties p WHERE p.id = bills.property_id AND p.user_id = $${values.length})`);
 
-  if (filters.propertyId) {
-    values.push(filters.propertyId);
-    where.push(`property_id = $${values.length}`);
-  }
-  if (filters.month) {
-    values.push(filters.month);
-    where.push(`billing_month = $${values.length}`);
-  }
-  if (filters.year) {
-    values.push(filters.year);
-    where.push(`LEFT(billing_month, 4) = $${values.length}`);
-  }
+   if (filters.propertyId) {
+     values.push(filters.propertyId);
+     where.push(`property_id = $${values.length}`);
+   }
+   if (filters.month) {
+     values.push(filters.month);
+     where.push(`billing_month = $${values.length}`);
+   }
+   if (filters.year) {
+     values.push(filters.year);
+     where.push(`LEFT(billing_month, 4) = $${values.length}`);
+   }
+   if (filters.type) {
+     values.push(filters.type);
+     where.push(`type = $${values.length}`);
+   }
 
-  const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
-  const result = await getPool().query(
-    `
-      SELECT id, property_id, provider, amount, currency, bill_date, billing_month, status
-      FROM bills
-      ${whereClause}
-      ORDER BY bill_date DESC
-    `,
-    values
-  );
+   const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+   const result = await getPool().query(
+     `
+       SELECT id, property_id, provider, amount, currency, bill_date, billing_month, status, type
+       FROM bills
+       ${whereClause}
+       ORDER BY bill_date DESC
+     `,
+     values
+   );
 
-  return result.rows.map(mapBillRow);
-}
+   return result.rows.map(mapBillRow);
+ }
 
 export async function insertBill(bill) {
-  const result = await getPool().query(
-    `
-      INSERT INTO bills(id, property_id, provider, amount, currency, bill_date, billing_month, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING id, property_id, provider, amount, currency, bill_date, billing_month, status
-    `,
-    [bill.id, bill.propertyId, bill.provider, bill.amount, bill.currency, bill.billDate, bill.billingMonth, bill.status]
-  );
-  return mapBillRow(result.rows[0]);
-}
+   const result = await getPool().query(
+     `
+       INSERT INTO bills(id, property_id, provider, amount, currency, bill_date, billing_month, status, type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, property_id, provider, amount, currency, bill_date, billing_month, status, type
+     `,
+     [bill.id, bill.propertyId, bill.provider, bill.amount, bill.currency, bill.billDate, bill.billingMonth, bill.status, bill.type || 'personal']
+   );
+   return mapBillRow(result.rows[0]);
+ }
 
 export async function insertBillsBulk(bills) {
-  if (!Array.isArray(bills) || bills.length === 0) {
-    return [];
-  }
+   if (!Array.isArray(bills) || bills.length === 0) {
+     return [];
+   }
 
-  const client = await getPool().connect();
-  try {
-    await client.query("BEGIN");
-    const inserted = [];
-    for (const bill of bills) {
-      const result = await client.query(
-        `
-          INSERT INTO bills(id, property_id, provider, amount, currency, bill_date, billing_month, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          RETURNING id, property_id, provider, amount, currency, bill_date, billing_month, status
-        `,
-        [bill.id, bill.propertyId, bill.provider, bill.amount, bill.currency, bill.billDate, bill.billingMonth, bill.status]
-      );
-      inserted.push(mapBillRow(result.rows[0]));
-    }
-    await client.query("COMMIT");
-    return inserted;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
+   const client = await getPool().connect();
+   try {
+     await client.query("BEGIN");
+     const inserted = [];
+     for (const bill of bills) {
+       const result = await client.query(
+         `
+           INSERT INTO bills(id, property_id, provider, amount, currency, bill_date, billing_month, status, type)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id, property_id, provider, amount, currency, bill_date, billing_month, status, type
+         `,
+         [bill.id, bill.propertyId, bill.provider, bill.amount, bill.currency, bill.billDate, bill.billingMonth, bill.status, bill.type || 'personal']
+       );
+       inserted.push(mapBillRow(result.rows[0]));
+     }
+     await client.query("COMMIT");
+     return inserted;
+   } catch (error) {
+     await client.query("ROLLBACK");
+     throw error;
+   } finally {
+     client.release();
+   }
+ }
 
 export async function updateBillStatus(id, status, propertyId, userId) {
-  const result = await getPool().query(
-    `
-      UPDATE bills b
-      SET status = $2
-      FROM properties p
-      WHERE b.id = $1
-        AND b.property_id = $3
-        AND p.id = b.property_id
-        AND p.user_id = $4
-      RETURNING b.id, b.property_id, b.provider, b.amount, b.currency, b.bill_date, b.billing_month, b.status
-    `,
-    [id, status, propertyId, userId]
-  );
-  return result.rows[0] ? mapBillRow(result.rows[0]) : null;
-}
+   const result = await getPool().query(
+     `
+       UPDATE bills b
+       SET status = $2
+       FROM properties p
+       WHERE b.id = $1
+         AND b.property_id = $3
+         AND p.id = b.property_id
+         AND p.user_id = $4
+       RETURNING b.id, b.property_id, b.provider, b.amount, b.currency, b.bill_date, b.billing_month, b.status, b.type
+     `,
+     [id, status, propertyId, userId]
+   );
+   return result.rows[0] ? mapBillRow(result.rows[0]) : null;
+ }
 
 export async function removeBill(id, propertyId, userId) {
   const result = await getPool().query(
