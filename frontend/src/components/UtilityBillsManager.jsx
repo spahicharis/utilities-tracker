@@ -1,8 +1,20 @@
 import {Fragment, useEffect, useMemo, useState} from "react";
 import {api} from "../lib/api";
+import {format} from "date-fns"
 
 const STATUS_OPTIONS = ["Pending", "Paid", "Overdue"];
 const CURRENCY_OPTIONS = ["KM", "EUR", "USD"];
+
+function defaultBillForm() {
+    return {
+        provider: "",
+        amount: "",
+        currency: "KM",
+        billDate: "",
+        billingMonth: new Date().toISOString().slice(0, 7),
+        status: "Pending"
+    };
+}
 
 function UtilityBillsManager({providers = [], selectedPropertyId}) {
     const [bills, setBills] = useState([]);
@@ -13,17 +25,11 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [dialogMode, setDialogMode] = useState("add");
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [importMessage, setImportMessage] = useState("");
-    const [form, setForm] = useState(() => ({
-        provider: "",
-        amount: "",
-        currency: "KM",
-        billDate: "",
-        billingMonth: new Date().toISOString().slice(0, 7),
-        status: "Pending"
-    }));
+    const [form, setForm] = useState(defaultBillForm);
     const [importForm, setImportForm] = useState(() => ({
         provider: "",
         year: String(new Date().getFullYear()),
@@ -151,6 +157,27 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                 ? current.filter((item) => item !== status)
                 : [...current, status]
         );
+    };
+
+    const openAddDialog = () => {
+        setDialogMode("add");
+        setForm(defaultBillForm());
+        setError("");
+        setIsDialogOpen(true);
+    };
+
+    const openCopyDialog = (bill) => {
+        setDialogMode("copy");
+        setForm({
+            provider: bill.provider || "",
+            amount: String(bill.amount ?? ""),
+            currency: bill.currency || "KM",
+            billDate: bill.billDate || "",
+            billingMonth: bill.billingMonth || new Date().toISOString().slice(0, 7),
+            status: bill.status || "Pending"
+        });
+        setError("");
+        setIsDialogOpen(true);
     };
 
     const addBill = async (event) => {
@@ -363,10 +390,7 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                     </button>
                     <button
                         type="button"
-                        onClick={() => {
-                            setError("");
-                            setIsDialogOpen(true);
-                        }}
+                        onClick={openAddDialog}
                         className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                     >
                         Add Bill
@@ -404,10 +428,10 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                     <tr>
                         <th className="px-3 py-2 font-semibold">Provider</th>
                         <th className="px-3 py-2 font-semibold">Amount</th>
-                        <th className="px-3 py-2 font-semibold">Date</th>
-                        <th className="px-3 py-2 font-semibold">Month</th>
+                        <th className="px-3 py-2 font-semibold">Date of invoice</th>
+                        {/*<th className="px-3 py-2 font-semibold">Month</th>*/}
                         <th className="px-3 py-2 font-semibold">Status</th>
-                        <th className="px-3 py-2 font-semibold">Action</th>
+                        <th className="px-3 py-2 font-semibold float-end">Action</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -425,7 +449,11 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                                         <div className="flex items-center justify-between gap-2">
                                             <span>{formatBillingMonthLabel(monthKey)}</span>
                                             <span
-                                                className="text-xs font-medium text-slate-500">{monthBills.length} bills</span>
+                                                className="text-xs font-medium text-slate-500">
+                                                <div className="bg-yellow-200 text-slate-700 py-1 px-2 rounded-md">
+                                                    {monthBills.length} bills
+                                                </div>
+                                            </span>
                                         </div>
                                     </td>
                                 </tr>
@@ -443,8 +471,8 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                                         <td className="px-3 py-2">
                                             {Number(bill.amount).toFixed(2)} {bill.currency || "KM"}
                                         </td>
-                                        <td className="px-3 py-2">{bill.billDate}</td>
-                                        <td className="px-3 py-2">{bill.billingMonth}</td>
+                                        <td className="px-3 py-2">{format(bill.billDate, "dd.MM.yyyy")} </td>
+                                        {/*<td className="px-3 py-2">{bill.billingMonth}</td>*/}
                                         <td className="px-3 py-2">
                                             <select
                                                 value={bill.status}
@@ -458,8 +486,16 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                                                 ))}
                                             </select>
                                         </td>
-                                        <td className="px-3 py-2">
+                                        <td className="px-3 py-2 float-end">
                                             <button
+                                                type="button"
+                                                onClick={() => openCopyDialog(bill)}
+                                                className="mr-2 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                            >
+                                                Repeat
+                                            </button>
+                                            <button
+                                                type="button"
                                                 onClick={() => removeBill(bill.id)}
                                                 className="rounded-md border border-rose-300 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50"
                                             >
@@ -479,7 +515,9 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
                     <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
                         <div className="flex items-center justify-between">
-                            <h3 className="font-['Manrope',sans-serif] text-xl font-bold">Add Bill</h3>
+                            <h3 className="font-['Manrope',sans-serif] text-xl font-bold">
+                                {dialogMode === "copy" ? "Copy Bill" : "Add Bill"}
+                            </h3>
                             <button
                                 type="button"
                                 onClick={() => {
@@ -581,7 +619,7 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                                 type="submit"
                                 className="md:col-span-2 xl:col-span-6 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                             >
-                                Save Bill
+                                {dialogMode === "copy" ? "Create Copy" : "Save Bill"}
                             </button>
                         </form>
                     </div>
