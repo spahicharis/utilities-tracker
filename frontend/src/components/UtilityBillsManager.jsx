@@ -68,7 +68,6 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
         );
         return names.sort((a, b) => a.localeCompare(b));
     }, [bills]);
-
     useEffect(() => {
         let isActive = true;
 

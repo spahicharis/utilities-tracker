@@ -161,7 +161,7 @@ function DashboardPage() {
                 <div className="flex flex-wrap items-end justify-between gap-4">
                     <div>
                         <p className="text-sm text-slate-500">Analytics</p>
-                        <h1 className="mt-1 font-['Manrope',sans-serif] text-3xl font-bold">Dashboard</h1>
+                        <h1 className="mt-1 font-['Manrope',sans-serif] text-3xl font-bold">Analytics</h1>
                         <p className="mt-2 text-sm text-slate-600">
                             Year-based view of your utility spending history
                             from {data.trackingStartYear} to {currentYear}.
@@ -278,7 +278,7 @@ function DashboardPage() {
                             hint="Needs payment follow-up"/>
                 <MetricCard label="Overdue Bills" value={String(data.cards.overdue || 0)} hint="High-priority items"/>
             </section>
-            {loading ? <p className="text-sm text-slate-500">Loading dashboard...</p> : null}
+            {loading ? <p className="text-sm text-slate-500">Loading analytics...</p> : null}
             {error ? <p className="text-sm text-rose-700">{error}</p> : null}
 
             <section className="rounded-2xl bg-white p-6 shadow-sm">

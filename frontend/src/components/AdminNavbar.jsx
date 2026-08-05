@@ -13,7 +13,7 @@ function AdminNavbar({ userName, onLogout, properties = [], selectedPropertyId, 
         </div>
         <nav className="hidden items-center gap-5 text-sm font-medium text-slate-600 md:flex">
           <a className="text-slate-900" href="#">
-            Dashboard
+            Analytics
           </a>
           <a href="#">Users</a>
           <a href="#">Services</a>
