@@ -10,7 +10,7 @@ function defaultBillForm() {
         provider: "",
         amount: "",
         currency: "KM",
-        billDate: "",
+        billDate: new Date().toISOString().slice(0, 10),
         billingMonth: new Date().toISOString().slice(0, 7),
         status: "Pending"
     };
@@ -171,7 +171,7 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
             provider: bill.provider || "",
             amount: String(bill.amount ?? ""),
             currency: bill.currency || "KM",
-            billDate: bill.billDate || "",
+            billDate: new Date().toISOString().slice(0, 10),
             billingMonth: bill.billingMonth || new Date().toISOString().slice(0, 7),
             status: bill.status || "Pending"
         });
@@ -529,7 +529,7 @@ function UtilityBillsManager({providers = [], selectedPropertyId}) {
                             </button>
                         </div>
 
-                        <form className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6" onSubmit={addBill}>
+                        <form className="mt-4 flex flex-col gap-3" onSubmit={addBill}>
                             <label className="block">
                                 <span
                                     className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Provider</span>

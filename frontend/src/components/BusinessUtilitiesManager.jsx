@@ -20,7 +20,7 @@ function BusinessUtilitiesManager({providers = [], selectedPropertyId}) {
         provider: "",
         amount: "",
         currency: "KM",
-        billDate: "",
+        billDate: new Date().toISOString().slice(0, 10),
         billingMonth: new Date().toISOString().slice(0, 7),
         status: "Pending"
     }));
@@ -167,7 +167,7 @@ function BusinessUtilitiesManager({providers = [], selectedPropertyId}) {
                 provider: form.provider.trim(),
                 amount,
                 currency: form.currency,
-                billDate: form.billDate,
+                billDate: new Date().toISOString().slice(0, 10),
                 billingMonth: form.billingMonth,
                 status: form.status,
                 type: "business"
@@ -182,7 +182,7 @@ function BusinessUtilitiesManager({providers = [], selectedPropertyId}) {
                 provider: "",
                 amount: "",
                 currency: current.currency || "KM",
-                billDate: "",
+                billDate: new Date().toISOString().slice(0, 10),
                 status: "Pending"
             }));
             setIsDialogOpen(false);
@@ -491,7 +491,7 @@ function BusinessUtilitiesManager({providers = [], selectedPropertyId}) {
                             </button>
                         </div>
 
-                        <form className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6" onSubmit={addBill}>
+                        <form className="mt-4 flex flex-col gap-3" onSubmit={addBill}>
                             <label className="block">
                                 <span
                                     className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Provider</span>
